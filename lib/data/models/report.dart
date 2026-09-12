@@ -1,4 +1,5 @@
 enum ReportCategory { pothole, waste, lighting, publicSpace }
+
 enum ReportStatus { reported, reviewing, inProgress, resolved }
 
 String categoryName(ReportCategory c) => switch (c) {
@@ -60,7 +61,8 @@ class ReportDraft {
 }
 
 class ReportUpdate {
-  const ReportUpdate({required this.title, required this.note, required this.completed});
+  const ReportUpdate(
+      {required this.title, required this.note, required this.completed});
   final String title;
   final String note;
   final bool completed;
@@ -71,10 +73,12 @@ class ReportStatistics {
   final int total;
   final int resolved;
 
-  String get resolutionRate => total == 0 ? '0%' : '${((resolved / total) * 100).toStringAsFixed(0)}%';
+  String get resolutionRate =>
+      total == 0 ? '0%' : '${((resolved / total) * 100).toStringAsFixed(0)}%';
 }
 
-int resolvedCount(List<Report> list) => list.where((r) => r.status == ReportStatus.resolved).length;
+int resolvedCount(List<Report> list) =>
+    list.where((r) => r.status == ReportStatus.resolved).length;
 
 final List<Report> reportsSeed = [
   const Report(
@@ -85,7 +89,8 @@ final List<Report> reportsSeed = [
     neighborhood: 'El Prado',
     time: 'Hace 2 horas',
     severity: 'Alta',
-    description: 'Bache peligroso cerca de la rotonda principal que afecta a los vehículos.',
+    description:
+        'Bache peligroso cerca de la rotonda principal que afecta a los vehículos.',
     latitude: -17.3895,
     longitude: -66.1568,
   ),
@@ -97,14 +102,18 @@ final List<Report> reportsSeed = [
     neighborhood: 'Recoleta',
     time: 'Hace 5 horas',
     severity: 'Media',
-    description: 'Bolsas de basura rotas dejadas fuera del contenedor asignado.',
+    description:
+        'Bolsas de basura rotas dejadas fuera del contenedor asignado.',
     latitude: -17.3820,
     longitude: -66.1500,
   ),
 ];
 
 List<ReportUpdate> updatesFor(Report report) => [
-      const ReportUpdate(title: 'Reporte recibido', note: 'Registrado en el sistema municipal.', completed: true),
+      const ReportUpdate(
+          title: 'Reporte recibido',
+          note: 'Registrado en el sistema municipal.',
+          completed: true),
       ReportUpdate(
         title: 'En revisión',
         note: 'Asignado al área de mantenimiento.',
@@ -113,6 +122,7 @@ List<ReportUpdate> updatesFor(Report report) => [
       ReportUpdate(
         title: 'Solución en curso',
         note: 'Cuadrilla trabajando en el lugar.',
-        completed: report.status == ReportStatus.inProgress || report.status == ReportStatus.resolved,
+        completed: report.status == ReportStatus.inProgress ||
+            report.status == ReportStatus.resolved,
       ),
     ];

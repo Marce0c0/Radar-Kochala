@@ -21,34 +21,42 @@ class _NewReportViewState extends State<NewReportView> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
-          title: const Text('Nuevo reporte', style: TextStyle(fontWeight: FontWeight.w800)),
+          title: const Text('Nuevo reporte',
+              style: TextStyle(fontWeight: FontWeight.w800)),
         ),
         body: ListView(
           padding: const EdgeInsets.all(20),
           children: [
             const Text('Ayúdanos a cuidar Cochabamba',
-                style: TextStyle(fontSize: 25, fontWeight: FontWeight.w800, color: AppTheme.ink)),
+                style: TextStyle(
+                    fontSize: 25,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.ink)),
             const SizedBox(height: 8),
             const Text('Comparte un problema urbano dentro de la ciudad.',
                 style: TextStyle(color: Color(0xff668080))),
             const SizedBox(height: 24),
-            const Text('¿Qué sucede?', style: TextStyle(fontWeight: FontWeight.w800)),
+            const Text('¿Qué sucede?',
+                style: TextStyle(fontWeight: FontWeight.w800)),
             const SizedBox(height: 10),
             DropdownButtonFormField<ReportCategory>(
               // Corregido: se usa initialValue en lugar de value por deprecación en versiones recientes
               initialValue: category,
               decoration: InputDecoration(
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                 filled: true,
                 fillColor: Colors.white,
               ),
               items: ReportCategory.values
-                  .map((c) => DropdownMenuItem(value: c, child: Text(categoryName(c))))
+                  .map((c) =>
+                      DropdownMenuItem(value: c, child: Text(categoryName(c))))
                   .toList(),
               onChanged: (v) => setState(() => category = v ?? category),
             ),
             const SizedBox(height: 18),
-            const Text('Descripción', style: TextStyle(fontWeight: FontWeight.w800)),
+            const Text('Descripción',
+                style: TextStyle(fontWeight: FontWeight.w800)),
             const SizedBox(height: 10),
             TextField(
               controller: description,
@@ -57,7 +65,8 @@ class _NewReportViewState extends State<NewReportView> {
                 hintText: 'Cuéntanos qué ocurre y dónde...',
                 filled: true,
                 fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
               ),
             ),
             const SizedBox(height: 28),
@@ -65,12 +74,14 @@ class _NewReportViewState extends State<NewReportView> {
               onPressed: () {
                 if (description.text.trim().length < 10) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('Describe el problema con al menos 10 caracteres.')));
+                      content: Text(
+                          'Describe el problema con al menos 10 caracteres.')));
                   return;
                 }
                 Navigator.pop(
                   context,
-                  ReportDraft(category: category, description: description.text.trim()),
+                  ReportDraft(
+                      category: category, description: description.text.trim()),
                 );
               },
               child: const Text('Enviar reporte'),

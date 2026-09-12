@@ -53,13 +53,15 @@ class ReportCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const Icon(Icons.chevron_right, color: Color(0xff8aa09d)),
+                        const Icon(Icons.chevron_right,
+                            color: Color(0xff8aa09d)),
                       ],
                     ),
                     const SizedBox(height: 5),
                     Text(
                       '${report.neighborhood} · ${report.time}',
-                      style: const TextStyle(fontSize: 12, color: Color(0xff78908d)),
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xff78908d)),
                     ),
                     const SizedBox(height: 10),
                     Row(
@@ -68,7 +70,8 @@ class ReportCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         Text(
                           'Gravedad ${report.severity}',
-                          style: const TextStyle(fontSize: 12, color: Color(0xff607875)),
+                          style: const TextStyle(
+                              fontSize: 12, color: Color(0xff607875)),
                         ),
                       ],
                     ),

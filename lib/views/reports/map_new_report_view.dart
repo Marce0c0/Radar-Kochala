@@ -15,7 +15,7 @@ class MapNewReportView extends StatefulWidget {
 class _MapNewReportViewState extends State<MapNewReportView> {
   ReportCategory category = ReportCategory.pothole;
   final description = TextEditingController();
-  
+
   late LatLng selectedLocation;
   late final MapController mapController;
 
@@ -36,7 +36,8 @@ class _MapNewReportViewState extends State<MapNewReportView> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
-          title: const Text('Nuevo reporte', style: TextStyle(fontWeight: FontWeight.w800)),
+          title: const Text('Nuevo reporte',
+              style: TextStyle(fontWeight: FontWeight.w800)),
         ),
         body: Column(
           children: [
@@ -61,7 +62,8 @@ class _MapNewReportViewState extends State<MapNewReportView> {
                     ),
                     children: [
                       TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                         userAgentPackageName: 'com.example.app',
                       ),
                     ],
@@ -83,7 +85,8 @@ class _MapNewReportViewState extends State<MapNewReportView> {
                     left: 16,
                     right: 16,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 6, horizontal: 12),
                       decoration: BoxDecoration(
                         color: Colors.black54,
                         borderRadius: BorderRadius.circular(20),
@@ -105,7 +108,10 @@ class _MapNewReportViewState extends State<MapNewReportView> {
                 padding: const EdgeInsets.all(20),
                 children: [
                   const Text('¿Qué encontraste?',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppTheme.ink)),
+                      style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.ink)),
                   const SizedBox(height: 4),
                   Text(
                     'Lat: ${selectedLocation.latitude.toStringAsFixed(5)}, Lon: ${selectedLocation.longitude.toStringAsFixed(5)}',
@@ -117,12 +123,15 @@ class _MapNewReportViewState extends State<MapNewReportView> {
                     initialValue: category,
                     decoration: InputDecoration(
                       labelText: 'Categoría',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14)),
                     ),
                     items: ReportCategory.values
-                        .map((value) => DropdownMenuItem(value: value, child: Text(categoryName(value))))
+                        .map((value) => DropdownMenuItem(
+                            value: value, child: Text(categoryName(value))))
                         .toList(),
-                    onChanged: (value) => setState(() => category = value ?? category),
+                    onChanged: (value) =>
+                        setState(() => category = value ?? category),
                   ),
                   const SizedBox(height: 18),
                   TextField(
@@ -131,7 +140,8 @@ class _MapNewReportViewState extends State<MapNewReportView> {
                     decoration: InputDecoration(
                       labelText: 'Descripción',
                       hintText: 'Describe el bache o problema...',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14)),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -139,7 +149,8 @@ class _MapNewReportViewState extends State<MapNewReportView> {
                     onPressed: () {
                       if (description.text.trim().length < 10) {
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                            content: Text('Describe el problema con al menos 10 caracteres.')));
+                            content: Text(
+                                'Describe el problema con al menos 10 caracteres.')));
                         return;
                       }
                       Navigator.pop(

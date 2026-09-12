@@ -19,7 +19,8 @@ class MapExploreView extends StatelessWidget {
     // Ahora abrimos MapNewReportView pasando la ubicación seleccionada como initialLocation
     final draft = await Navigator.push<ReportDraft>(
       context,
-      MaterialPageRoute(builder: (_) => MapNewReportView(initialLocation: location)),
+      MaterialPageRoute(
+          builder: (_) => MapNewReportView(initialLocation: location)),
     );
     if (draft != null) {
       await controller.create(draft);
@@ -37,13 +38,14 @@ class MapExploreView extends StatelessWidget {
     final reports = controller.visibleReports;
     final mappedReports = reports
         .where((report) => report.latitude != null && report.longitude != null);
-    
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 110),
       children: [
         const Text(
           'Mapa ciudadano',
-          style: TextStyle(fontSize: 27, fontWeight: FontWeight.w800, color: AppTheme.ink),
+          style: TextStyle(
+              fontSize: 27, fontWeight: FontWeight.w800, color: AppTheme.ink),
         ),
         const SizedBox(height: 4),
         const Text(
@@ -64,40 +66,46 @@ class MapExploreView extends StatelessWidget {
                     initialZoom: 13.2,
                     minZoom: 10,
                     maxZoom: 19,
-                    interactionOptions: const InteractionOptions(flags: InteractiveFlag.all),
+                    interactionOptions:
+                        const InteractionOptions(flags: InteractiveFlag.all),
                     // Al tocar cualquier parte del mapa, enviamos ese punto como referencia inicial
                     onTap: (_, point) => _addReport(context, point),
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.example.cochabamba_reporta',
                     ),
                     MarkerLayer(
                       markers: mappedReports
                           .map((report) => Marker(
-                              point: LatLng(report.latitude!, report.longitude!),
-                              width: 48,
-                              height: 48,
-                              child: GestureDetector(
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (_) => DetailView(report: report)),
-                                ),
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: _categoryColor(report.category),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white, width: 3),
+                                point:
+                                    LatLng(report.latitude!, report.longitude!),
+                                width: 48,
+                                height: 48,
+                                child: GestureDetector(
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            DetailView(report: report)),
                                   ),
-                                  child: Icon(
-                                    _categoryIcon(report.category),
-                                    color: Colors.white,
-                                    size: 23,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: _categoryColor(report.category),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                          color: Colors.white, width: 3),
+                                    ),
+                                    child: Icon(
+                                      _categoryIcon(report.category),
+                                      color: Colors.white,
+                                      size: 23,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ))
+                              ))
                           .toList(),
                     ),
                   ],
@@ -113,7 +121,8 @@ class MapExploreView extends StatelessWidget {
                         onPressed: () {
                           try {
                             final currentZoom = mapController.camera.zoom;
-                            _safeMove(mapController.camera.center, currentZoom + 1);
+                            _safeMove(
+                                mapController.camera.center, currentZoom + 1);
                           } catch (_) {
                             _safeMove(cochabamba, 14.2);
                           }
@@ -127,7 +136,8 @@ class MapExploreView extends StatelessWidget {
                         onPressed: () {
                           try {
                             final currentZoom = mapController.camera.zoom;
-                            _safeMove(mapController.camera.center, currentZoom - 1);
+                            _safeMove(
+                                mapController.camera.center, currentZoom - 1);
                           } catch (_) {
                             _safeMove(cochabamba, 12.2);
                           }
@@ -157,7 +167,8 @@ class MapExploreView extends StatelessWidget {
         const SizedBox(height: 20),
         const Text(
           'Reportes cercanos',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.ink),
+          style: TextStyle(
+              fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.ink),
         ),
         const SizedBox(height: 10),
         ...reports.take(4).map((report) => ReportCard(
