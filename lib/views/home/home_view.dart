@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // <-- Nuevo import de Provider
 import '../../controllers/report_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/report.dart';
@@ -15,58 +16,45 @@ class HomeView extends StatefulWidget {
 }
 
 class _HomeViewState extends State<HomeView> {
-  final controller = ReportController();
   int tab = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    controller.load();
-  }
+  // Ya no inicializamos ni hacemos dispose del controller aquí.
+  // Tampoco necesitamos el AnimatedBuilder, Provider se encarga de redibujar.
 
   @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-        animation: controller,
-        builder: (_, __) => Scaffold(
-          body: SafeArea(
-            child: IndexedStack(
-              index: tab,
-              children: [
-                _ExploreView(controller: controller, onNew: _newReport),
-                MapExploreView(controller: controller),
-                _MyReportsView(controller: controller),
-                ProfileView(controller: controller, onNew: _newReport),
-              ],
-            ),
-          ),
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: tab,
-            onDestinationSelected: (v) => setState(() => tab = v),
-            destinations: const [
-              NavigationDestination(
-                  icon: Icon(Icons.explore_outlined),
-                  selectedIcon: Icon(Icons.explore),
-                  label: 'Explorar'),
-              NavigationDestination(
-                  icon: Icon(Icons.map_outlined),
-                  selectedIcon: Icon(Icons.map),
-                  label: 'Mapa'),
-              NavigationDestination(
-                  icon: Icon(Icons.assignment_outlined),
-                  selectedIcon: Icon(Icons.assignment),
-                  label: 'Mis reportes'),
-              NavigationDestination(
-                  icon: Icon(Icons.person_outline),
-                  selectedIcon: Icon(Icons.person),
-                  label: 'Perfil'),
+  Widget build(BuildContext context) => Scaffold(
+        body: SafeArea(
+          child: IndexedStack(
+            index: tab,
+            children: [
+              _ExploreView(onNew: _newReport), // Ya no pasamos el controller
+              const MapExploreView(), // Ya no pasamos el controller
+              const _MyReportsView(), // Ya no pasamos el controller
+              ProfileView(onNew: _newReport), // Ya no pasamos el controller
             ],
           ),
+        ),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: tab,
+          onDestinationSelected: (v) => setState(() => tab = v),
+          destinations: const [
+            NavigationDestination(
+                icon: Icon(Icons.explore_outlined),
+                selectedIcon: Icon(Icons.explore),
+                label: 'Explorar'),
+            NavigationDestination(
+                icon: Icon(Icons.map_outlined),
+                selectedIcon: Icon(Icons.map),
+                label: 'Mapa'),
+            NavigationDestination(
+                icon: Icon(Icons.assignment_outlined),
+                selectedIcon: Icon(Icons.assignment),
+                label: 'Mis reportes'),
+            NavigationDestination(
+                icon: Icon(Icons.person_outline),
+                selectedIcon: Icon(Icons.person),
+                label: 'Perfil'),
+          ],
         ),
       );
 
@@ -76,8 +64,9 @@ class _HomeViewState extends State<HomeView> {
       MaterialPageRoute(builder: (_) => const NewReportView()),
     );
     if (draft != null) {
-      await controller.create(draft);
       if (mounted) {
+        // Usamos context.read para ejecutar una acción sin escuchar cambios
+        await context.read<ReportController>().create(draft);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Reporte guardado en la demo.')),
         );
@@ -87,17 +76,18 @@ class _HomeViewState extends State<HomeView> {
 }
 
 class _ExploreView extends StatelessWidget {
-  const _ExploreView({required this.controller, required this.onNew});
-  final ReportController controller;
+  const _ExploreView({required this.onNew});
   final Future<void> Function() onNew;
 
   @override
   Widget build(BuildContext context) {
+    // Usamos context.watch para escuchar los cambios del estado
+    final controller = context.watch<ReportController>();
     final stats = controller.statistics;
+    
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 110),
       children: [
-        // Encabezado con Animación de Bienvenida
         const _WelcomeHeader(),
         const SizedBox(height: 20),
         Row(
@@ -159,7 +149,6 @@ class _ExploreView extends StatelessWidget {
   }
 }
 
-/// Widget independiente con Animación de Bienvenida (Fade + Deslizamiento)
 class _WelcomeHeader extends StatefulWidget {
   const _WelcomeHeader();
 
@@ -187,14 +176,14 @@ class _WelcomeHeaderState extends State<_WelcomeHeader>
     );
 
     _slideAnim = Tween<Offset>(
-      begin: const Offset(0, 0.25), // Inicia un poco más abajo
+      begin: const Offset(0, 0.25),
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _animController,
       curve: Curves.easeOutCubic,
     ));
 
-    _animController.forward(); // Inicia la animación automáticamente
+    _animController.forward();
   }
 
   @override
@@ -266,31 +255,35 @@ class _WelcomeHeaderState extends State<_WelcomeHeader>
 }
 
 class _MyReportsView extends StatelessWidget {
-  const _MyReportsView({required this.controller});
-  final ReportController controller;
+  const _MyReportsView();
 
   @override
-  Widget build(BuildContext context) => ListView(
-        padding: const EdgeInsets.fromLTRB(20, 28, 20, 30),
-        children: [
-          const Text('Mis reportes',
-              style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.ink)),
-          const SizedBox(height: 8),
-          const Text('Aquí puedes seguir los reportes que enviaste.',
-              style: TextStyle(color: Color(0xff668080))),
-          const SizedBox(height: 26),
-          ...controller.reports.where((r) => r.isMine).map((r) => ReportCard(
-                report: r,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => DetailView(report: r)),
-                ),
-              )),
-        ],
-      );
+  Widget build(BuildContext context) {
+    // Usamos context.watch para acceder a la lista de reportes
+    final controller = context.watch<ReportController>();
+    
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 28, 20, 30),
+      children: [
+        const Text('Mis reportes',
+            style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.ink)),
+        const SizedBox(height: 8),
+        const Text('Aquí puedes seguir los reportes que enviaste.',
+            style: TextStyle(color: Color(0xff668080))),
+        const SizedBox(height: 26),
+        ...controller.reports.where((r) => r.isMine).map((r) => ReportCard(
+              report: r,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => DetailView(report: r)),
+              ),
+            )),
+      ],
+    );
+  }
 }
 
 class _Metric extends StatelessWidget {

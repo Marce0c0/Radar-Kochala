@@ -28,6 +28,7 @@ class Report {
     required this.description,
     this.latitude,
     this.longitude,
+    this.imageUrl,
     this.isMine = false,
   });
 
@@ -41,9 +42,8 @@ class Report {
   final String description;
   final double? latitude;
   final double? longitude;
+  final String? imageUrl;
   final bool isMine;
-
-  String? get imageUrl => null;
 }
 
 class ReportDraft {
@@ -52,12 +52,14 @@ class ReportDraft {
     required this.description,
     this.latitude,
     this.longitude,
+    this.imageUrl,
   });
 
   final ReportCategory category;
   final String description;
   final double? latitude;
   final double? longitude;
+  final String? imageUrl;
 }
 
 class ReportUpdate {

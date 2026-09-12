@@ -24,6 +24,7 @@ class MockReportRepository implements ReportRepository {
       description: draft.description,
       latitude: draft.latitude,
       longitude: draft.longitude,
+      imageUrl: draft.imageUrl,
       isMine: true,
     );
     _reports.insert(0, report);

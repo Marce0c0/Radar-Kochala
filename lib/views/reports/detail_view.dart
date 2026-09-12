@@ -8,93 +8,88 @@ class DetailView extends StatelessWidget {
   final Report report;
 
   @override
-  Widget build(BuildContext context) {
-    // Puedes verificar si tu modelo 'Report' tiene un campo de imagen (ej. report.imageUrl)
-    // Si no lo tiene todavía, puedes agregar un string por defecto o mock.
-    final String imageUrl = report.imageUrl ??
-        'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRDbBI78XO25Iohn8BtUyMNkiEYJ_Utj8KAC_p3HgTTww&s=10';
+Widget build(BuildContext context) {
+  final String? imageUrl = report.imageUrl;
 
-    return Scaffold(
-      backgroundColor: AppTheme.lightTheme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('Detalle del reporte',
-            style: TextStyle(fontWeight: FontWeight.w800)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          // --- SECCIÓN DE FOTO DEL INCIDENTE / BACHE ---
-          if (imageUrl.isNotEmpty) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(22),
-              child: Container(
-                height: 220,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: const Color(0xffdcebe6),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.ink.withValues(alpha: 0.08),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5),
+  return Scaffold(
+    backgroundColor: AppTheme.lightTheme.scaffoldBackgroundColor,
+    appBar: AppBar(
+      title: const Text('Detalle del reporte',
+          style: TextStyle(fontWeight: FontWeight.w800)),
+      backgroundColor: Colors.white,
+      elevation: 0,
+    ),
+    body: ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        // Solo renderiza el contenedor si hay una imagen presente
+        if (imageUrl != null && imageUrl.isNotEmpty) ...[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: Container(
+              height: 220,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: const Color(0xffdcebe6),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.ink.withValues(alpha: 0.08),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const Center(
+                      child: Icon(Icons.broken_image_outlined,
+                          size: 50, color: Color(0xff78908d)),
                     ),
-                  ],
-                ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Center(
-                        child: Icon(Icons.broken_image_outlined,
-                            size: 50, color: Color(0xff78908d)),
-                      ),
-                    ),
-                    // Degradado inferior para darle estilo moderno
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 10, horizontal: 16),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withValues(alpha: 0.6)
-                            ],
-                          ),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.camera_alt_rounded,
-                                color: Colors.white, size: 18),
-                            SizedBox(width: 8),
-                            Text(
-                              'Evidencia fotográfica del reporte',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600),
-                            ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 10, horizontal: 16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.6)
                           ],
                         ),
                       ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.camera_alt_rounded,
+                              color: Colors.white, size: 18),
+                          SizedBox(width: 8),
+                          Text(
+                            'Evidencia fotográfica del reporte',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 24),
-          ],
-
+          ),
+          const SizedBox(height: 24),
+        ],
           // --- TÍTULO Y ESTADO ---
           Text(
             report.title,
