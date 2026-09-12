@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
 import 'views/home/home_view.dart';
+import 'views/role/role_selection_view.dart';
 
 void main() {
   runApp(const BachesCochaApp());
@@ -15,7 +16,7 @@ class BachesCochaApp extends StatelessWidget {
       title: 'Baches Cocha',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const WelcomeView(), // Inicia con la pantalla de bienvenida animada
+      home: const RoleSelectionView(),
     );
   }
 }
@@ -28,7 +29,8 @@ class WelcomeView extends StatefulWidget {
   State<WelcomeView> createState() => _WelcomeViewState();
 }
 
-class _WelcomeViewState extends State<WelcomeView> with SingleTickerProviderStateMixin {
+class _WelcomeViewState extends State<WelcomeView>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _fadeAnimation;
   late final Animation<Offset> _slideAnimation;
@@ -131,9 +133,13 @@ class _WelcomeViewState extends State<WelcomeView> with SingleTickerProviderStat
                       Navigator.pushReplacement(
                         context,
                         PageRouteBuilder(
-                          pageBuilder: (context, animation, secondaryAnimation) => const HomeView(),
-                          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                            return FadeTransition(opacity: animation, child: child);
+                          pageBuilder:
+                              (context, animation, secondaryAnimation) =>
+                                  const HomeView(),
+                          transitionsBuilder:
+                              (context, animation, secondaryAnimation, child) {
+                            return FadeTransition(
+                                opacity: animation, child: child);
                           },
                           transitionDuration: const Duration(milliseconds: 500),
                         ),
@@ -149,7 +155,8 @@ class _WelcomeViewState extends State<WelcomeView> with SingleTickerProviderStat
                     ),
                     icon: const Text(
                       'Comenzar',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     label: const Icon(Icons.arrow_forward_rounded, size: 22),
                   ),

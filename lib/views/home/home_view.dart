@@ -5,6 +5,7 @@ import '../../data/models/report.dart';
 import '../map/map_explore_view.dart';
 import '../reports/detail_view.dart';
 import '../reports/new_report_view.dart';
+import '../profile/profile_view.dart';
 import '../widgets/report_card.dart';
 
 class HomeView extends StatefulWidget {
@@ -40,6 +41,7 @@ class _HomeViewState extends State<HomeView> {
                 _ExploreView(controller: controller, onNew: _newReport),
                 MapExploreView(controller: controller),
                 _MyReportsView(controller: controller),
+                ProfileView(controller: controller, onNew: _newReport),
               ],
             ),
           ),
@@ -59,6 +61,10 @@ class _HomeViewState extends State<HomeView> {
                   icon: Icon(Icons.assignment_outlined),
                   selectedIcon: Icon(Icons.assignment),
                   label: 'Mis reportes'),
+              NavigationDestination(
+                  icon: Icon(Icons.person_outline),
+                  selectedIcon: Icon(Icons.person),
+                  label: 'Perfil'),
             ],
           ),
         ),
@@ -98,12 +104,16 @@ class _ExploreView extends StatelessWidget {
           children: [
             _Metric('Reportes', '${stats.total}', Icons.campaign_outlined),
             const SizedBox(width: 10),
-            _Metric('Resueltos', stats.resolutionRate, Icons.check_circle_outline),
+            _Metric(
+                'Resueltos', stats.resolutionRate, Icons.check_circle_outline),
           ],
         ),
         const SizedBox(height: 22),
         const Text('Explora por categoría',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.ink)),
+            style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.ink)),
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
@@ -121,7 +131,10 @@ class _ExploreView extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text('Actividad reciente',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.ink)),
+                style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.ink)),
             TextButton.icon(
               onPressed: onNew,
               icon: const Icon(Icons.add),
@@ -154,7 +167,8 @@ class _WelcomeHeader extends StatefulWidget {
   State<_WelcomeHeader> createState() => _WelcomeHeaderState();
 }
 
-class _WelcomeHeaderState extends State<_WelcomeHeader> with SingleTickerProviderStateMixin {
+class _WelcomeHeaderState extends State<_WelcomeHeader>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _animController;
   late final Animation<double> _fadeAnim;
   late final Animation<Offset> _slideAnim;
@@ -205,9 +219,13 @@ class _WelcomeHeaderState extends State<_WelcomeHeader> with SingleTickerProvide
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('¡Bienvenido! 👋',
-                        style: TextStyle(fontSize: 27, fontWeight: FontWeight.w800, color: AppTheme.ink)),
+                        style: TextStyle(
+                            fontSize: 27,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.ink)),
                     SizedBox(height: 3),
-                    Text('Cochabamba: Reporta. Sigue. Mejora.', style: TextStyle(color: Color(0xff668080))),
+                    Text('Cochabamba: Reporta. Sigue. Mejora.',
+                        style: TextStyle(color: Color(0xff668080))),
                   ],
                 ),
                 CircleAvatar(
@@ -225,12 +243,16 @@ class _WelcomeHeaderState extends State<_WelcomeHeader> with SingleTickerProvide
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.verified_user_outlined, color: Colors.white, size: 38),
+                  Icon(Icons.verified_user_outlined,
+                      color: Colors.white, size: 38),
                   SizedBox(width: 14),
                   Expanded(
                     child: Text(
                       'Tu ciudad, más cuidada\nTodo lo que reportes queda dentro de Cochabamba.',
-                      style: TextStyle(color: Colors.white, height: 1.4, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                          color: Colors.white,
+                          height: 1.4,
+                          fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -252,7 +274,10 @@ class _MyReportsView extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 28, 20, 30),
         children: [
           const Text('Mis reportes',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppTheme.ink)),
+              style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.ink)),
           const SizedBox(height: 8),
           const Text('Aquí puedes seguir los reportes que enviaste.',
               style: TextStyle(color: Color(0xff668080))),
@@ -292,8 +317,13 @@ class _Metric extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(value,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.ink)),
-                Text(label, style: const TextStyle(fontSize: 12, color: Color(0xff78908d))),
+                    style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.ink)),
+                Text(label,
+                    style: const TextStyle(
+                        fontSize: 12, color: Color(0xff78908d))),
               ],
             ),
           ],

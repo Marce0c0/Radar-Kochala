@@ -10,10 +10,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:cochabamba_reporta/main.dart';
 
 void main() {
-  testWidgets('Muestra el mapa ciudadano', (WidgetTester tester) async {
-    // Solución correcta
-await tester.pumpWidget(const BachesCochaApp());
-    await tester.pump();
+  testWidgets('Selecciona un rol y permite abrir el mapa ciudadano', (WidgetTester tester) async {
+    await tester.pumpWidget(const BachesCochaApp());
+    await tester.pumpAndSettle();
+    expect(find.text('Cochabamba Reporta'), findsOneWidget);
+    expect(find.text('Vecino / Ciudadano'), findsOneWidget);
+    expect(find.text('Operador Municipal'), findsOneWidget);
+    expect(find.text('Encargado de Campo'), findsOneWidget);
+    expect(find.text('Administrador'), findsOneWidget);
+    await tester.tap(find.text('Vecino / Ciudadano'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mapa'));
+    await tester.pumpAndSettle();
     expect(find.text('Mapa ciudadano'), findsOneWidget);
     expect(find.text('Añadir reporte en el mapa'), findsOneWidget);
   });

@@ -16,7 +16,8 @@ class StatusPill extends StatelessWidget {
       ),
       child: Text(
         statusName(status),
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700),
+        style:
+            TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700),
       ),
     );
   }
