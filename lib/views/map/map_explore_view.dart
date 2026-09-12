@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart'; 
+import 'package:provider/provider.dart'; // <-- Nuevo import de Provider
 import '../../controllers/report_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/report.dart';
@@ -8,22 +10,55 @@ import '../reports/detail_view.dart';
 import '../reports/map_new_report_view.dart';
 import '../widgets/report_card.dart';
 
-class MapExploreView extends StatelessWidget {
-  MapExploreView({super.key, required this.controller});
+class MapExploreView extends StatefulWidget {
+  const MapExploreView({super.key}); // <-- Ya no pedimos el controller
 
-  final ReportController controller;
+  @override
+  State<MapExploreView> createState() => _MapExploreViewState();
+}
+
+class _MapExploreViewState extends State<MapExploreView> {
   final MapController mapController = MapController();
   static const cochabamba = LatLng(-17.3895, -66.1568);
 
+  @override
+  void initState() {
+    super.initState();
+    _centrarEnUbicacionUsuario(); 
+  }
+
+  // Lógica para pedir permisos y obtener el GPS
+  Future<void> _centrarEnUbicacionUsuario() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return; // Si el GPS está apagado, se queda en la ubicación por defecto
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return;
+    }
+
+    if (permission == LocationPermission.deniedForever) return;
+
+    // Si tenemos permiso, obtenemos la posición actual
+    Position position = await Geolocator.getCurrentPosition();
+    _safeMove(LatLng(position.latitude, position.longitude), 15.5);
+  }
+
   Future<void> _addReport(BuildContext context, LatLng location) async {
-    // Ahora abrimos MapNewReportView pasando la ubicación seleccionada como initialLocation
     final draft = await Navigator.push<ReportDraft>(
       context,
       MaterialPageRoute(
           builder: (_) => MapNewReportView(initialLocation: location)),
     );
     if (draft != null) {
-      await controller.create(draft);
+      if (mounted) {
+        // <-- Usamos context.read() para guardar usando el Provider
+        await context.read<ReportController>().create(draft); 
+      }
     }
   }
 
@@ -35,6 +70,9 @@ class MapExploreView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // <-- Obtenemos el controller directamente del Provider
+    final controller = context.watch<ReportController>(); 
+    
     final reports = controller.visibleReports;
     final mappedReports = reports
         .where((report) => report.latitude != null && report.longitude != null);
@@ -68,7 +106,6 @@ class MapExploreView extends StatelessWidget {
                     maxZoom: 19,
                     interactionOptions:
                         const InteractionOptions(flags: InteractiveFlag.all),
-                    // Al tocar cualquier parte del mapa, enviamos ese punto como referencia inicial
                     onTap: (_, point) => _addReport(context, point),
                   ),
                   children: [
@@ -116,6 +153,14 @@ class MapExploreView extends StatelessWidget {
                   child: Column(
                     children: [
                       FloatingActionButton.small(
+                        heroTag: 'map-location',
+                        tooltip: 'Mi ubicación',
+                        backgroundColor: AppTheme.teal,
+                        onPressed: _centrarEnUbicacionUsuario,
+                        child: const Icon(Icons.my_location, color: Colors.white),
+                      ),
+                      const SizedBox(height: 8),
+                      FloatingActionButton.small(
                         heroTag: 'map-zoom-in',
                         tooltip: 'Acercar mapa',
                         onPressed: () {
@@ -153,7 +198,6 @@ class MapExploreView extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         OutlinedButton.icon(
-          // Si el usuario presiona el botón inferior, toma el centro actual del mapa o Cochabamba
           onPressed: () {
             LatLng center = cochabamba;
             try {

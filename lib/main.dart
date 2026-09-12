@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
-import 'views/home/home_view.dart';
+import 'controllers/report_controller.dart'; 
 import 'views/role/role_selection_view.dart';
+import 'views/home/home_view.dart';
 
 void main() {
-  runApp(const BachesCochaApp());
+  runApp(
+    // Envolvemos la app en el Provider
+    ChangeNotifierProvider(
+      create: (_) => ReportController()..load(), // Inicializamos y cargamos los reportes aquí
+      child: const BachesCochaApp(),
+    ),
+  );
 }
 
 class BachesCochaApp extends StatelessWidget {

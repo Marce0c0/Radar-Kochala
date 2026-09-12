@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../controllers/report_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../reports/detail_view.dart';
-import '../staff/staff_views.dart';
 import '../widgets/report_card.dart';
 
 class ProfileView extends StatelessWidget {
-  const ProfileView({super.key, required this.controller, required this.onNew});
+  const ProfileView({super.key, required this.onNew}); // Ya no pedimos el controller
 
-  final ReportController controller;
   final Future<void> Function() onNew;
 
   @override
   Widget build(BuildContext context) {
+    // Obtenemos el controlador directamente del Provider
+    final controller = context.watch<ReportController>();
+    
     final mine = controller.reports.where((report) => report.isMine).toList();
     final resolved =
         mine.where((report) => report.status.name == 'resolved').length;
+        
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
       children: [
@@ -34,23 +37,23 @@ class ProfileView extends StatelessWidget {
               CircleAvatar(
                   radius: 28,
                   backgroundColor: Color(0xff409d91),
-                  child: Text('C',
+                  child: Text('S', // Actualizado con tu inicial
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: 22,
                           fontWeight: FontWeight.w800))),
               SizedBox(width: 14),
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Carlos Mamani',
+                Text('Vecino Activo',
                     style: TextStyle(
                         color: Colors.white,
                         fontSize: 18,
                         fontWeight: FontWeight.w800)),
                 SizedBox(height: 4),
-                Text('El Prado, Cochabamba',
+                Text('Cochabamba, Bolivia',
                     style: TextStyle(color: Colors.white70)),
                 SizedBox(height: 8),
-                Text('Vecino activo',
+                Text('Cuenta Ciudadana',
                     style: TextStyle(
                         color: Colors.white, fontWeight: FontWeight.w700)),
               ]),
@@ -88,11 +91,6 @@ class ProfileView extends StatelessWidget {
               )),
         const SizedBox(height: 12),
         const _SectionTitle('Configuración'),
-        _ActionTile(
-            icon: Icons.admin_panel_settings_outlined,
-            title: 'Panel municipal',
-            onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const StaffHubView()))),
         _ActionTile(
             icon: Icons.notifications_none,
             title: 'Notificaciones',
