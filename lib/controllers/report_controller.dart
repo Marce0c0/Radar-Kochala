@@ -4,7 +4,7 @@ import '../data/repositories/report_repository.dart';
 
 class ReportController extends ChangeNotifier {
   ReportController({ReportRepository? repository})
-      : _repository = repository ?? MockReportRepository();
+      : _repository = repository ?? SupabaseReportRepository();
 
   final ReportRepository _repository;
   List<Report> reports = [];
@@ -43,5 +43,14 @@ class ReportController extends ChangeNotifier {
     reports = [created, ...reports];
     notifyListeners();
     return created;
+  }
+
+  Future<void> updateStatus(String reportId, ReportStatus newStatus) async {
+    try {
+      await _repository.updateReportStatus(reportId, newStatus);
+      await load(); 
+    } catch (e) {
+      print('Error al actualizar: $e');
+    }
   }
 }

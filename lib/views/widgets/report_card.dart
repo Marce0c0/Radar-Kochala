@@ -30,11 +30,7 @@ class ReportCard extends StatelessWidget {
               Container(
                 width: 44,
                 height: 44,
-                decoration: BoxDecoration(
-                  // Corregido: se usa withValues en lugar de withOpacity para evitar pérdida de precisión
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                ),
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
                 child: Icon(_categoryIcon(report.category), color: color),
               ),
               const SizedBox(width: 12),
@@ -44,35 +40,18 @@ class ReportCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Expanded(
-                          child: Text(
-                            report.title,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: AppTheme.ink,
-                            ),
-                          ),
-                        ),
-                        const Icon(Icons.chevron_right,
-                            color: Color(0xff8aa09d)),
+                        Expanded(child: Text(report.title, style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.ink))),
+                        const Icon(Icons.chevron_right, color: Color(0xff8aa09d)),
                       ],
                     ),
                     const SizedBox(height: 5),
-                    Text(
-                      '${report.neighborhood} · ${report.time}',
-                      style: const TextStyle(
-                          fontSize: 12, color: Color(0xff78908d)),
-                    ),
+                    Text('${report.neighborhood} · ${report.time}', style: const TextStyle(fontSize: 12, color: Color(0xff78908d))),
                     const SizedBox(height: 10),
                     Row(
                       children: [
                         StatusPill(status: report.status),
                         const SizedBox(width: 8),
-                        Text(
-                          'Gravedad ${report.severity}',
-                          style: const TextStyle(
-                              fontSize: 12, color: Color(0xff607875)),
-                        ),
+                        Text('Gravedad ${report.severity}', style: const TextStyle(fontSize: 12, color: Color(0xff607875))),
                       ],
                     ),
                   ],
@@ -90,6 +69,9 @@ class ReportCard extends StatelessWidget {
         ReportCategory.waste => Icons.delete_outline,
         ReportCategory.lighting => Icons.lightbulb_outline,
         ReportCategory.publicSpace => Icons.park_outlined,
+        ReportCategory.waterLeak => Icons.water_drop_outlined,
+        ReportCategory.trafficLight => Icons.traffic_outlined,
+        ReportCategory.vandalism => Icons.format_paint_outlined,
       };
 
   Color _categoryColor(ReportCategory c) => switch (c) {
@@ -97,5 +79,8 @@ class ReportCard extends StatelessWidget {
         ReportCategory.waste => const Color(0xff718d43),
         ReportCategory.lighting => const Color(0xffd99a3d),
         ReportCategory.publicSpace => AppTheme.teal,
+        ReportCategory.waterLeak => Colors.blue,
+        ReportCategory.trafficLight => Colors.redAccent,
+        ReportCategory.vandalism => Colors.purple,
       };
 }
