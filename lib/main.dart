@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/theme/app_theme.dart';
 import 'controllers/report_controller.dart'; 
 import 'views/role/role_selection_view.dart';
 import 'views/home/home_view.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: 'https://novclixqzicstiuiymwi.supabase.co',
+    publishableKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vdmNsaXhxemljc3RpdWl5bXdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3NDcyMjcsImV4cCI6MjEwNTMyMzIyN30.usrDr1o5xiQSQIJzMcLQug2Qkrqbzkh7EeXdJQRkGRg',
+  );
+
   runApp(
     // Envolvemos la app en el Provider
     ChangeNotifierProvider(

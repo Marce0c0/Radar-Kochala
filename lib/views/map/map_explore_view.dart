@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart'; 
-import 'package:provider/provider.dart'; // <-- Nuevo import de Provider
+import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../controllers/report_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/report.dart';
@@ -11,7 +12,7 @@ import '../reports/map_new_report_view.dart';
 import '../widgets/report_card.dart';
 
 class MapExploreView extends StatefulWidget {
-  const MapExploreView({super.key}); // <-- Ya no pedimos el controller
+  const MapExploreView({super.key});
 
   @override
   State<MapExploreView> createState() => _MapExploreViewState();
@@ -27,15 +28,11 @@ class _MapExploreViewState extends State<MapExploreView> {
     _centrarEnUbicacionUsuario(); 
   }
 
-  // Lógica para pedir permisos y obtener el GPS
   Future<void> _centrarEnUbicacionUsuario() async {
-    bool serviceEnabled;
-    LocationPermission permission;
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return; 
 
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return; // Si el GPS está apagado, se queda en la ubicación por defecto
-
-    permission = await Geolocator.checkPermission();
+    LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) return;
@@ -43,53 +40,42 @@ class _MapExploreViewState extends State<MapExploreView> {
 
     if (permission == LocationPermission.deniedForever) return;
 
-    // Si tenemos permiso, obtenemos la posición actual
     Position position = await Geolocator.getCurrentPosition();
     _safeMove(LatLng(position.latitude, position.longitude), 15.5);
   }
 
   Future<void> _addReport(BuildContext context, LatLng location) async {
-    final draft = await Navigator.push<ReportDraft>(
-      context,
-      MaterialPageRoute(
-          builder: (_) => MapNewReportView(initialLocation: location)),
-    );
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Debes registrarte o iniciar sesión para reportar.'), backgroundColor: Color(0xffd9684b)),
+      );
+      return;
+    }
+
+    final draft = await Navigator.push<ReportDraft>(context, MaterialPageRoute(builder: (_) => MapNewReportView(initialLocation: location)));
     if (draft != null) {
-      if (mounted) {
-        // <-- Usamos context.read() para guardar usando el Provider
-        await context.read<ReportController>().create(draft); 
-      }
+      if (!context.mounted) return;
+      await context.read<ReportController>().create(draft); 
     }
   }
 
   void _safeMove(LatLng center, double zoom) {
-    try {
-      mapController.move(center, zoom);
-    } catch (_) {}
+    try { mapController.move(center, zoom); } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
-    // <-- Obtenemos el controller directamente del Provider
     final controller = context.watch<ReportController>(); 
-    
     final reports = controller.visibleReports;
-    final mappedReports = reports
-        .where((report) => report.latitude != null && report.longitude != null);
+    final mappedReports = reports.where((report) => report.latitude != null && report.longitude != null);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 110),
       children: [
-        const Text(
-          'Mapa ciudadano',
-          style: TextStyle(
-              fontSize: 27, fontWeight: FontWeight.w800, color: AppTheme.ink),
-        ),
+        const Text('Mapa ciudadano', style: TextStyle(fontSize: 27, fontWeight: FontWeight.w800, color: AppTheme.ink)),
         const SizedBox(height: 4),
-        const Text(
-          'Toca un punto del mapa para reportar un bache o cualquier problema.',
-          style: TextStyle(color: Color(0xff668080)),
-        ),
+        const Text('Toca un punto del mapa para reportar.', style: TextStyle(color: Color(0xff668080))),
         const SizedBox(height: 16),
         ClipRRect(
           borderRadius: BorderRadius.circular(22),
@@ -104,46 +90,27 @@ class _MapExploreViewState extends State<MapExploreView> {
                     initialZoom: 13.2,
                     minZoom: 10,
                     maxZoom: 19,
-                    interactionOptions:
-                        const InteractionOptions(flags: InteractiveFlag.all),
+                    interactionOptions: const InteractionOptions(flags: InteractiveFlag.all),
                     onTap: (_, point) => _addReport(context, point),
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.example.cochabamba_reporta',
                     ),
                     MarkerLayer(
-                      markers: mappedReports
-                          .map((report) => Marker(
-                                point:
-                                    LatLng(report.latitude!, report.longitude!),
+                      markers: mappedReports.map((report) => Marker(
+                                point: LatLng(report.latitude!, report.longitude!),
                                 width: 48,
                                 height: 48,
                                 child: GestureDetector(
-                                  onTap: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) =>
-                                            DetailView(report: report)),
-                                  ),
+                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DetailView(report: report))),
                                   child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: _categoryColor(report.category),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                          color: Colors.white, width: 3),
-                                    ),
-                                    child: Icon(
-                                      _categoryIcon(report.category),
-                                      color: Colors.white,
-                                      size: 23,
-                                    ),
+                                    decoration: BoxDecoration(color: _categoryColor(report.category), shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 3)),
+                                    child: Icon(_categoryIcon(report.category), color: Colors.white, size: 23),
                                   ),
                                 ),
-                              ))
-                          .toList(),
+                              )).toList(),
                     ),
                   ],
                 ),
@@ -152,43 +119,11 @@ class _MapExploreViewState extends State<MapExploreView> {
                   bottom: 12,
                   child: Column(
                     children: [
-                      FloatingActionButton.small(
-                        heroTag: 'map-location',
-                        tooltip: 'Mi ubicación',
-                        backgroundColor: AppTheme.teal,
-                        onPressed: _centrarEnUbicacionUsuario,
-                        child: const Icon(Icons.my_location, color: Colors.white),
-                      ),
+                      FloatingActionButton.small(heroTag: 'map-loc', backgroundColor: AppTheme.teal, onPressed: _centrarEnUbicacionUsuario, child: const Icon(Icons.my_location, color: Colors.white)),
                       const SizedBox(height: 8),
-                      FloatingActionButton.small(
-                        heroTag: 'map-zoom-in',
-                        tooltip: 'Acercar mapa',
-                        onPressed: () {
-                          try {
-                            final currentZoom = mapController.camera.zoom;
-                            _safeMove(
-                                mapController.camera.center, currentZoom + 1);
-                          } catch (_) {
-                            _safeMove(cochabamba, 14.2);
-                          }
-                        },
-                        child: const Icon(Icons.add),
-                      ),
+                      FloatingActionButton.small(heroTag: 'map-in', onPressed: () { try { _safeMove(mapController.camera.center, mapController.camera.zoom + 1); } catch (_) {} }, child: const Icon(Icons.add)),
                       const SizedBox(height: 8),
-                      FloatingActionButton.small(
-                        heroTag: 'map-zoom-out',
-                        tooltip: 'Alejar mapa',
-                        onPressed: () {
-                          try {
-                            final currentZoom = mapController.camera.zoom;
-                            _safeMove(
-                                mapController.camera.center, currentZoom - 1);
-                          } catch (_) {
-                            _safeMove(cochabamba, 12.2);
-                          }
-                        },
-                        child: const Icon(Icons.remove),
-                      ),
+                      FloatingActionButton.small(heroTag: 'map-out', onPressed: () { try { _safeMove(mapController.camera.center, mapController.camera.zoom - 1); } catch (_) {} }, child: const Icon(Icons.remove)),
                     ],
                   ),
                 ),
@@ -200,28 +135,16 @@ class _MapExploreViewState extends State<MapExploreView> {
         OutlinedButton.icon(
           onPressed: () {
             LatLng center = cochabamba;
-            try {
-              center = mapController.camera.center;
-            } catch (_) {}
+            try { center = mapController.camera.center; } catch (_) {}
             _addReport(context, center);
           },
           icon: const Icon(Icons.add_location_alt_outlined),
           label: const Text('Añadir reporte en el mapa'),
         ),
         const SizedBox(height: 20),
-        const Text(
-          'Reportes cercanos',
-          style: TextStyle(
-              fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.ink),
-        ),
+        const Text('Reportes cercanos', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.ink)),
         const SizedBox(height: 10),
-        ...reports.take(4).map((report) => ReportCard(
-              report: report,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => DetailView(report: report)),
-              ),
-            )),
+        ...reports.take(4).map((report) => ReportCard(report: report, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DetailView(report: report))))),
       ],
     );
   }
@@ -231,6 +154,9 @@ class _MapExploreViewState extends State<MapExploreView> {
         ReportCategory.waste => Icons.delete_outline,
         ReportCategory.lighting => Icons.lightbulb_outline,
         ReportCategory.publicSpace => Icons.park_outlined,
+        ReportCategory.waterLeak => Icons.water_drop_outlined,
+        ReportCategory.trafficLight => Icons.traffic_outlined,
+        ReportCategory.vandalism => Icons.format_paint_outlined,
       };
 
   Color _categoryColor(ReportCategory c) => switch (c) {
@@ -238,5 +164,8 @@ class _MapExploreViewState extends State<MapExploreView> {
         ReportCategory.waste => const Color(0xff718d43),
         ReportCategory.lighting => const Color(0xffd99a3d),
         ReportCategory.publicSpace => AppTheme.teal,
+        ReportCategory.waterLeak => Colors.blue,
+        ReportCategory.trafficLight => Colors.redAccent,
+        ReportCategory.vandalism => Colors.purple,
       };
 }

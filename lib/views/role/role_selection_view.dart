@@ -1,104 +1,167 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/app_theme.dart';
 import '../home/home_view.dart';
 import '../staff/staff_views.dart';
 
-class RoleSelectionView extends StatelessWidget {
+class RoleSelectionView extends StatefulWidget {
   const RoleSelectionView({super.key});
+
+  @override
+  State<RoleSelectionView> createState() => _RoleSelectionViewState();
+}
+
+class _RoleSelectionViewState extends State<RoleSelectionView> {
+  final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController(text: 'admin123');
+  bool _isLoading = false;
+  bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Bloque protegido para verificar sesión activa
+      try {
+        final session = Supabase.instance.client.auth.currentSession;
+        if (session != null && session.user.email != null) {
+          _routeUser(session.user.email!);
+        }
+      } catch (e) {
+        debugPrint('Error al verificar sesión inicial: $e');
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
+    super.dispose();
+  }
+
+  void _routeUser(String email) {
+    if (email.startsWith('operador@')) {
+      _open(const StaffHubView(initialSection: 0));
+    } else if (email.startsWith('trabajador@')) {
+      _open(const FieldWorkerView());
+    } else if (email.startsWith('admin@') || email.startsWith('superadmin@')) {
+      _open(const StaffHubView(initialSection: 3));
+    } else {
+      _open(const HomeView());
+    }
+  }
+
+  void _open(Widget page) {
+    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => page));
+  }
+
+  Future<void> _signInOrSignUp() async {
+    if (_emailCtrl.text.isEmpty) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _isLoading = true);
+    
+    final email = _emailCtrl.text.trim().toLowerCase();
+    final password = _passwordCtrl.text.trim();
+
+    try {
+      // 1. Intentar iniciar sesión
+      final res = await Supabase.instance.client.auth.signInWithPassword(email: email, password: password);
+      if (res.user != null) _routeUser(res.user!.email!);
+    } on AuthException catch (_) {
+      // 2. Si falla (credenciales inválidas o no existe), intentar registrar
+      try {
+        final res = await Supabase.instance.client.auth.signUp(email: email, password: password);
+        if (res.user != null) {
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cuenta registrada en la nube.')));
+          _routeUser(res.user!.email!);
+        }
+      } on AuthException catch (signUpError) {
+        // Muestra el error exacto de Supabase (ej. "Password should be at least 6 characters")
+        _showError(signUpError.message);
+      } catch (e) {
+        _showError('Error al registrar. Revisa tu conexión.');
+      }
+    } catch (e) {
+      _showError('Error inesperado de conexión.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: const Color(0xffd9684b)));
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
         body: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) => SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(28, 24, 28, 18),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight - 42),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      children: [
-                        const SizedBox(height: 12),
-                        Container(
-                          width: 58,
-                          height: 58,
-                          decoration: const BoxDecoration(color: AppTheme.teal, shape: BoxShape.circle),
-                          child: const Icon(Icons.location_on_outlined, color: Colors.white, size: 30),
-                        ),
-                        const SizedBox(height: 12),
-                        const Text('Cochabamba Reporta', textAlign: TextAlign.center, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: AppTheme.ink)),
-                        const SizedBox(height: 4),
-                        const Text('Selecciona tu rol para continuar', style: TextStyle(fontSize: 11, color: Color(0xff78908d))),
-                        const SizedBox(height: 26),
-                        _RoleOption(
-                          icon: Icons.home_outlined,
-                          title: 'Vecino / Ciudadano',
-                          subtitle: 'Reporta incidentes en tu zona',
-                          onTap: () => _open(context, const HomeView()),
-                        ),
-                        _RoleOption(
-                          icon: Icons.assignment_outlined,
-                          title: 'Operador Municipal',
-                          subtitle: 'Valida y asigna reportes',
-                          onTap: () => _open(context, const StaffHubView(initialSection: 0)),
-                        ),
-                        _RoleOption(
-                          icon: Icons.build_outlined,
-                          title: 'Encargado de Campo',
-                          subtitle: 'Ejecuta y verifica tareas',
-                          onTap: () => _open(context, const FieldWorkerView()),
-                        ),
-                        _RoleOption(
-                          icon: Icons.auto_graph_outlined,
-                          title: 'Administrador',
-                          subtitle: 'Gestiona el sistema completo',
-                          onTap: () => _open(context, const StaffHubView(initialSection: 3)),
-                        ),
-                      ],
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.only(top: 28),
-                      child: Text('Alcaldía de Cochabamba · v1.0', style: TextStyle(fontSize: 9, color: Color(0xff9aaba7))),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-
-  void _open(BuildContext context, Widget page) {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => page));
-  }
-}
-
-class _RoleOption extends StatelessWidget {
-  const _RoleOption({required this.icon, required this.title, required this.subtitle, required this.onTap});
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Material(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(11),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(11),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(11), border: Border.all(color: const Color(0xffe1e9e6))),
-              child: Row(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(width: 34, height: 34, decoration: BoxDecoration(color: const Color(0xffe5f1ed), borderRadius: BorderRadius.circular(9)), child: Icon(icon, color: AppTheme.teal, size: 19)),
-                  const SizedBox(width: 10),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppTheme.ink)), const SizedBox(height: 2), Text(subtitle, style: const TextStyle(fontSize: 10, color: Color(0xff78908d)))])),
-                  const Icon(Icons.chevron_right, color: Color(0xff668080), size: 18),
+                  Container(
+                    width: 68,
+                    height: 68,
+                    decoration: const BoxDecoration(color: AppTheme.teal, shape: BoxShape.circle),
+                    child: const Icon(Icons.location_city, color: Colors.white, size: 36),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Cochabamba Reporta', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppTheme.ink)),
+                  const SizedBox(height: 6),
+                  const Text('Inicia sesión para continuar', style: TextStyle(color: Color(0xff78908d))),
+                  const SizedBox(height: 35),
+                  TextField(
+                    controller: _emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    decoration: InputDecoration(
+                      labelText: 'Correo electrónico',
+                      hintText: 'ej. operador@alcaldia.cbba',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      prefixIcon: const Icon(Icons.email_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _passwordCtrl,
+                    obscureText: _obscurePassword,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _signInOrSignUp(),
+                    decoration: InputDecoration(
+                      labelText: 'Contraseña',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
+                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  if (_isLoading)
+                    const CircularProgressIndicator(color: AppTheme.teal)
+                  else ...[
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: FilledButton(
+                        onPressed: _signInOrSignUp,
+                        style: FilledButton.styleFrom(backgroundColor: AppTheme.teal, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                        child: const Text('Entrar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const Divider(),
+                    const SizedBox(height: 16),
+                    TextButton.icon(
+                      onPressed: () => _open(const HomeView()),
+                      icon: const Icon(Icons.explore_outlined),
+                      label: const Text('Entrar como Invitado (Solo ver)'),
+                    ),
+                  ]
                 ],
               ),
             ),

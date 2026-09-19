@@ -64,13 +64,13 @@ class _HomeViewState extends State<HomeView> {
       MaterialPageRoute(builder: (_) => const NewReportView()),
     );
     if (draft != null) {
-      if (mounted) {
-        // Usamos context.read para ejecutar una acción sin escuchar cambios
-        await context.read<ReportController>().create(draft);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Reporte guardado en la demo.')),
-        );
-      }
+      if (!mounted) return;
+      // Usamos context.read para ejecutar una acción sin escuchar cambios
+      await context.read<ReportController>().create(draft);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reporte guardado en la demo.')),
+      );
     }
   }
 }
