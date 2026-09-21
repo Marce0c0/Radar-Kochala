@@ -1,24 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../controllers/report_controller.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/models/report.dart';
 import '../reports/detail_view.dart';
+import '../role/role_selection_view.dart';
 import '../widgets/report_card.dart';
 
 class ProfileView extends StatelessWidget {
-  const ProfileView({super.key, required this.onNew}); // Ya no pedimos el controller
+  const ProfileView({super.key, required this.onNew});
 
   final Future<void> Function() onNew;
 
   @override
   Widget build(BuildContext context) {
-    // Obtenemos el controlador directamente del Provider
     final controller = context.watch<ReportController>();
-    
-    final mine = controller.reports.where((report) => report.isMine).toList();
+
+    // CORRECCIÓN #3 y #4: Leemos los datos reales del usuario autenticado.
+    final user = Supabase.instance.client.auth.currentUser;
+    final isGuest = user == null;
+    final email = user?.email ?? '';
+    // Tomamos la primera letra del email (o '?' si no hay usuario).
+    final initial =
+        email.isNotEmpty ? email[0].toUpperCase() : '?';
+    // Nombre para mostrar: usamos la parte antes del @ del email.
+    final displayName = email.isNotEmpty
+        ? email.split('@').first.replaceAll('.', ' ').replaceAll('_', ' ')
+        : 'Invitado';
+
+    final mine = controller.reports.where((r) => r.isMine).toList();
     final resolved =
-        mine.where((report) => report.status.name == 'resolved').length;
-        
+        mine.where((r) => r.status == ReportStatus.resolved).length;
+    // CORRECCIÓN #5: "En proceso" calculado desde datos reales.
+    final inProgress =
+        mine.where((r) => r.status == ReportStatus.inProgress).length;
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
       children: [
@@ -28,67 +45,119 @@ class ProfileView extends StatelessWidget {
                 fontWeight: FontWeight.w900,
                 color: AppTheme.ink)),
         const SizedBox(height: 16),
+        // Tarjeta de perfil con datos reales del usuario autenticado.
         Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
               color: AppTheme.teal, borderRadius: BorderRadius.circular(20)),
-          child: const Row(
+          child: Row(
             children: [
               CircleAvatar(
                   radius: 28,
-                  backgroundColor: Color(0xff409d91),
-                  child: Text('S', // Actualizado con tu inicial
-                      style: TextStyle(
+                  backgroundColor: const Color(0xff409d91),
+                  child: Text(initial,
+                      style: const TextStyle(
                           color: Colors.white,
                           fontSize: 22,
                           fontWeight: FontWeight.w800))),
-              SizedBox(width: 14),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Vecino Activo',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800)),
-                SizedBox(height: 4),
-                Text('Cochabamba, Bolivia',
-                    style: TextStyle(color: Colors.white70)),
-                SizedBox(height: 8),
-                Text('Cuenta Ciudadana',
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w700)),
-              ]),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isGuest ? 'Invitado' : displayName,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    if (!isGuest) ...[
+                      const SizedBox(height: 4),
+                      Text(email,
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 12),
+                          overflow: TextOverflow.ellipsis),
+                    ],
+                  ],
+                ),
+              ),
             ],
           ),
         ),
-        const SizedBox(height: 14),
-        Row(children: [
-          _Stat(value: '${mine.length}', label: 'Enviados'),
-          const SizedBox(width: 10),
-          _Stat(value: '$resolved', label: 'Resueltos'),
-          const SizedBox(width: 10),
-          const _Stat(value: '2', label: 'En proceso'),
-        ]),
-        const SizedBox(height: 24),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          const Text('Mis reportes recientes',
-              style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.ink)),
-          TextButton(onPressed: onNew, child: const Text('Reportar')),
-        ]),
-        if (mine.isEmpty)
-          const Padding(
-              padding: EdgeInsets.all(20),
-              child: Center(child: Text('Todavía no has enviado reportes.')))
-        else
-          ...mine.take(2).map((report) => ReportCard(
-                report: report,
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => DetailView(report: report))),
-              )),
+        if (!isGuest) ...[
+          const SizedBox(height: 14),
+          Row(children: [
+            _Stat(value: '${mine.length}', label: 'Enviados'),
+            const SizedBox(width: 10),
+            _Stat(value: '$resolved', label: 'Resueltos'),
+            const SizedBox(width: 10),
+            // CORRECCIÓN #5: Dato calculado, no hardcodeado.
+            _Stat(value: '$inProgress', label: 'En proceso'),
+          ]),
+          const SizedBox(height: 24),
+          Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Mis reportes recientes',
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.ink)),
+                TextButton(onPressed: onNew, child: const Text('Reportar')),
+              ]),
+          if (mine.isEmpty)
+            const Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(
+                    child: Text('Todavía no has enviado reportes.')))
+          else
+            ...mine.take(2).map((report) => ReportCard(
+                  report: report,
+                  onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => DetailView(report: report))),
+                )),
+        ] else ...[
+          // Usuario invitado: invitamos a crear cuenta.
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xffe1e9e6)),
+            ),
+            child: Column(
+              children: [
+                const Icon(Icons.person_outline,
+                    size: 40, color: Color(0xff78908d)),
+                const SizedBox(height: 10),
+                const Text('Estás navegando como invitado',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700, color: AppTheme.ink)),
+                const SizedBox(height: 6),
+                const Text(
+                  'Crea una cuenta para enviar reportes y hacer seguimiento.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Color(0xff668080), fontSize: 13),
+                ),
+                const SizedBox(height: 14),
+                FilledButton(
+                  onPressed: () => Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const RoleSelectionView())),
+                  style: FilledButton.styleFrom(backgroundColor: AppTheme.teal),
+                  child: const Text('Iniciar sesión / Registrarse'),
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         const _SectionTitle('Configuración'),
         _ActionTile(
@@ -105,11 +174,13 @@ class ProfileView extends StatelessWidget {
             title: 'Ayuda y soporte',
             onTap: () =>
                 _showMessage(context, 'Soporte disponible de lunes a viernes')),
-        _ActionTile(
-            icon: Icons.logout,
-            title: 'Cerrar sesión',
-            danger: true,
-            onTap: () => _showMessage(context, 'Sesión cerrada en modo demo')),
+        if (!isGuest)
+          // CORRECCIÓN #6: signOut() real + navegación a RoleSelectionView.
+          _ActionTile(
+              icon: Icons.logout,
+              title: 'Cerrar sesión',
+              danger: true,
+              onTap: () => _confirmLogout(context)),
       ],
     );
   }
@@ -117,6 +188,44 @@ class ProfileView extends StatelessWidget {
   void _showMessage(BuildContext context, String message) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  // CORRECCIÓN #6: Confirmación antes de cerrar sesión + signOut real.
+  Future<void> _confirmLogout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cerrar sesión'),
+        content: const Text('¿Seguro que deseas cerrar tu sesión?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xffd9684b)),
+            child: const Text('Cerrar sesión'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        await Supabase.instance.client.auth.signOut();
+      } catch (e) {
+        debugPrint('Error al cerrar sesión: $e');
+      } finally {
+        if (context.mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const RoleSelectionView()),
+            (route) => false,
+          );
+        }
+      }
+    }
   }
 }
 
@@ -141,7 +250,8 @@ class _Stat extends StatelessWidget {
                     color: AppTheme.teal)),
             const SizedBox(height: 3),
             Text(label,
-                style: const TextStyle(fontSize: 11, color: Color(0xff78908d))),
+                style:
+                    const TextStyle(fontSize: 11, color: Color(0xff78908d))),
           ]),
         ),
       );

@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import '../../core/presentation_strategies.dart';
 import '../../data/models/report.dart';
 
+// DECORATOR: StatusPill "decora" visualmente el estado del reporte,
+// añadiendo color y formato sin modificar el dato original.
 class StatusPill extends StatelessWidget {
   const StatusPill({super.key, required this.status});
   final ReportStatus status;
 
   @override
   Widget build(BuildContext context) {
-    final color = _statusColor(status);
+    // STRATEGY: color delegado al módulo centralizado.
+    final color = statusColor(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
@@ -16,16 +20,9 @@ class StatusPill extends StatelessWidget {
       ),
       child: Text(
         statusName(status),
-        style:
-            TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700),
+        style: TextStyle(
+            color: color, fontSize: 11, fontWeight: FontWeight.w700),
       ),
     );
   }
-
-  Color _statusColor(ReportStatus s) => switch (s) {
-        ReportStatus.reported => const Color(0xff6c7c88),
-        ReportStatus.reviewing => const Color(0xffd99a3d),
-        ReportStatus.inProgress => const Color(0xff0eb6c2),
-        ReportStatus.resolved => const Color(0xff5b954b),
-      };
 }
