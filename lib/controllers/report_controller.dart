@@ -2,6 +2,12 @@ import 'package:flutter/foundation.dart';
 import '../data/models/report.dart';
 import '../data/repositories/report_repository.dart';
 
+// OBSERVER: ReportController extiende ChangeNotifier, implementando el patrón
+// Observer. Las vistas se suscriben con context.watch() y se redibujan
+// automáticamente cuando se llama notifyListeners().
+//
+// FACADE: actúa como fachada que simplifica el acceso al subsistema de datos
+// (Repository), exponiendo solo las operaciones que las vistas necesitan.
 class ReportController extends ChangeNotifier {
   ReportController({ReportRepository? repository})
       : _repository = repository ?? SupabaseReportRepository();
@@ -16,15 +22,18 @@ class ReportController extends ChangeNotifier {
       ? reports
       : reports.where((r) => r.category == filter).toList();
 
+  // CORRECCIÓN #14: estadísticas reales, sin números inventados.
   ReportStatistics get statistics =>
-      ReportStatistics(reports.length + 1248, resolvedCount(reports) + 849);
+      ReportStatistics(reports.length, resolvedCount(reports));
 
+
+  // OBSERVER: notifica a todos los widgets suscritos tras cada operación.
   Future<void> load() async {
     loading = true;
+    error = null;
     notifyListeners();
     try {
       reports = await _repository.fetchReports();
-      error = null;
     } catch (_) {
       error = 'No se pudieron cargar los reportes';
     } finally {
@@ -48,9 +57,9 @@ class ReportController extends ChangeNotifier {
   Future<void> updateStatus(String reportId, ReportStatus newStatus) async {
     try {
       await _repository.updateReportStatus(reportId, newStatus);
-      await load(); 
+      await load();
     } catch (e) {
-      print('Error al actualizar: $e');
+      debugPrint('Error al actualizar: $e');
     }
   }
 }
