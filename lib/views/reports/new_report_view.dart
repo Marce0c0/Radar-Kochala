@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart'; // kIsWeb, Uint8List
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/report.dart';
 
@@ -233,10 +235,11 @@ class _NewReportViewState extends State<NewReportView> {
     );
 
     try {
-      const String googleApiKey = 'AIzaSyB7jQ_4LKrK4cijmOPkxh4RqYEULNMpix0';
+      final String googleApiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+      if (googleApiKey.isEmpty) throw Exception('API Key no configurada');
 
       final model =
-          GenerativeModel(model: 'gemini-1.5-flash', apiKey: googleApiKey);
+          GenerativeModel(model: 'gemini-3.6-flash', apiKey: googleApiKey);
 
       // Obtenemos los bytes de la imagen de forma compatible web/móvil.
       final Uint8List imageBytes = kIsWeb

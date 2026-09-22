@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:image_picker/image_picker.dart';
@@ -293,9 +294,11 @@ class _MapNewReportViewState extends State<MapNewReportView> {
     );
 
     try {
-      const String googleApiKey = 'AIzaSyB7jQ_4LKrK4cijmOPkxh4RqYEULNMpix0';
+      final String googleApiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+      if (googleApiKey.isEmpty) throw Exception('API Key no configurada');
+
       final model =
-          GenerativeModel(model: 'gemini-1.5-flash', apiKey: googleApiKey);
+          GenerativeModel(model: 'gemini-3.6-flash', apiKey: googleApiKey);
 
       // Compatible web/móvil.
       final Uint8List imageBytes = kIsWeb
