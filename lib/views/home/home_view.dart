@@ -9,6 +9,7 @@ import '../reports/detail_view.dart';
 import '../reports/new_report_view.dart';
 import '../profile/profile_view.dart';
 import '../widgets/report_card.dart';
+import 'leaderboard_view.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
@@ -28,10 +29,11 @@ class _HomeViewState extends State<HomeView> {
           child: IndexedStack(
             index: tab,
             children: [
-              _ExploreView(onNew: _newReport), // Ya no pasamos el controller
-              const MapExploreView(), // Ya no pasamos el controller
-              const _MyReportsView(), // Ya no pasamos el controller
-              ProfileView(onNew: _newReport), // Ya no pasamos el controller
+              _ExploreView(onNew: _newReport),
+              const MapExploreView(),
+              const LeaderboardView(),
+              const _MyReportsView(),
+              ProfileView(onNew: _newReport),
             ],
           ),
         ),
@@ -47,6 +49,10 @@ class _HomeViewState extends State<HomeView> {
                 icon: Icon(Icons.map_outlined),
                 selectedIcon: Icon(Icons.map),
                 label: 'Mapa'),
+            NavigationDestination(
+                icon: Icon(Icons.leaderboard_outlined),
+                selectedIcon: Icon(Icons.leaderboard),
+                label: 'Ranking'),
             NavigationDestination(
                 icon: Icon(Icons.assignment_outlined),
                 selectedIcon: Icon(Icons.assignment),
@@ -116,7 +122,14 @@ class _ExploreView extends StatelessWidget {
     return RefreshIndicator(
       color: AppTheme.teal,
       onRefresh: () => context.read<ReportController>().load(),
-      child: ListView(
+      child: NotificationListener<ScrollEndNotification>(
+        onNotification: (scrollInfo) {
+          if (scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent - 200) {
+            context.read<ReportController>().loadMore();
+          }
+          return false;
+        },
+        child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 110),
         children: [
@@ -176,6 +189,11 @@ class _ExploreView extends StatelessWidget {
               padding: EdgeInsets.all(30),
               child: Center(child: Text('No hay reportes para este filtro.')),
             ),
+          if (controller.loadingMore)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(child: CircularProgressIndicator()),
+            ),
         ],
       ),
     );
@@ -194,10 +212,12 @@ class _WelcomeHeaderState extends State<_WelcomeHeader>
   late final AnimationController _animController;
   late final Animation<double> _fadeAnim;
   late final Animation<Offset> _slideAnim;
+  int _points = 0;
 
   @override
   void initState() {
     super.initState();
+    _fetchPoints();
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -217,6 +237,20 @@ class _WelcomeHeaderState extends State<_WelcomeHeader>
     ));
 
     _animController.forward();
+  }
+
+  Future<void> _fetchPoints() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      try {
+        final res = await Supabase.instance.client.from('profiles').select('points').eq('id', user.id).maybeSingle();
+        if (res != null && mounted) {
+          setState(() => _points = res['points'] as int? ?? 0);
+        }
+      } catch (e) {
+        debugPrint('Error fetching points: $e');
+      }
+    }
   }
 
   @override
@@ -251,12 +285,24 @@ class _WelcomeHeaderState extends State<_WelcomeHeader>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('¡Hola, $name! 👋',
-                          style: const TextStyle(
-                              fontSize: 27,
-                              fontWeight: FontWeight.w800,
-                              color: AppTheme.ink),
-                          overflow: TextOverflow.ellipsis),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text('¡Hola, $name! 👋',
+                                style: const TextStyle(
+                                    fontSize: 27,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppTheme.ink),
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                          if (user != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(color: Colors.amber.shade100, borderRadius: BorderRadius.circular(12)),
+                              child: Text('🏆 $_points pts', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade800)),
+                            ),
+                        ],
+                      ),
                       const SizedBox(height: 3),
                       const Text('Cochabamba: Reporta. Sigue. Mejora.',
                           style: TextStyle(color: Color(0xff668080))),
@@ -339,7 +385,14 @@ class _MyReportsView extends StatelessWidget {
     return RefreshIndicator(
       color: AppTheme.teal,
       onRefresh: () => context.read<ReportController>().load(),
-      child: ListView(
+      child: NotificationListener<ScrollEndNotification>(
+        onNotification: (scrollInfo) {
+          if (scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent - 200) {
+            context.read<ReportController>().loadMore();
+          }
+          return false;
+        },
+        child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 28, 20, 30),
         children: [
@@ -365,7 +418,13 @@ class _MyReportsView extends StatelessWidget {
                     MaterialPageRoute(builder: (_) => DetailView(report: r)),
                   ),
                 )),
+          if (controller.loadingMore)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(child: CircularProgressIndicator()),
+            ),
         ],
+      ),
       ),
     );
   }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/presentation_strategies.dart';
 import '../../data/models/report.dart';
 
 // DECORATOR: StatusPill "decora" visualmente el estado del reporte,
@@ -26,3 +25,4 @@ class StatusPill extends StatelessWidget {
     );
   }
 }
+

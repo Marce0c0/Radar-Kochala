@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../controllers/report_controller.dart';
-import '../../core/presentation_strategies.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/report.dart';
 import '../reports/detail_view.dart';
@@ -117,6 +117,12 @@ class _MapExploreViewState extends State<MapExploreView> {
                     initialZoom: 13.2,
                     minZoom: 10,
                     maxZoom: 19,
+                    cameraConstraint: CameraConstraint.contain(
+                      bounds: LatLngBounds(
+                        const LatLng(-17.25, -66.30),
+                        const LatLng(-17.50, -65.90),
+                      ),
+                    ),
                     interactionOptions: const InteractionOptions(
                         flags: InteractiveFlag.all),
                     onTap: (_, point) => _addReport(context, point),
@@ -128,41 +134,101 @@ class _MapExploreViewState extends State<MapExploreView> {
                       userAgentPackageName:
                           'com.example.cochabamba_reporta',
                     ),
-                    MarkerLayer(
-                      markers: mappedReports
-                          .map((report) => Marker(
-                                point: LatLng(
-                                    report.latitude!, report.longitude!),
-                                width: 48,
-                                height: 48,
-                                child: GestureDetector(
-                                  onTap: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) =>
-                                            DetailView(report: report)),
-                                  ),
-                                  // DECORATOR: DecoratedBox añade estilo visual
-                                  // al marcador sin modificar el dato del reporte.
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      // STRATEGY: color de categoría centralizado.
-                                      color: categoryColor(report.category),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                          color: Colors.white, width: 3),
+                    MarkerClusterLayerWidget(
+                      options: MarkerClusterLayerOptions(
+                        maxClusterRadius: 45,
+                        size: const Size(40, 40),
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.all(50),
+                        markers: mappedReports
+                            .map((report) => Marker(
+                                  point: LatLng(
+                                      report.latitude!, report.longitude!),
+                                  width: 48,
+                                  height: 48,
+                                  child: GestureDetector(
+                                    onTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (_) =>
+                                              DetailView(report: report)),
                                     ),
-                                    child: Icon(
-                                      categoryIcon(report.category),
-                                      color: Colors.white,
-                                      size: 23,
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: categoryColor(report.category),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                            color: Colors.white, width: 3),
+                                      ),
+                                      child: Icon(
+                                        categoryIcon(report.category),
+                                        color: Colors.white,
+                                        size: 23,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ))
-                          .toList(),
+                                ))
+                            .toList(),
+                        builder: (context, markers) {
+                          return Container(
+                            decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(20),
+                                color: AppTheme.teal,
+                                border: Border.all(color: Colors.white, width: 2)),
+                            child: Center(
+                              child: Text(
+                                markers.length.toString(),
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ],
+                ),
+                Positioned(
+                  top: 10,
+                  left: 0,
+                  right: 0,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Row(
+                      children: [
+                        FilterChip(
+                          label: const Text('Ocultar resueltos'),
+                          selected: controller.hideResolved,
+                          onSelected: (v) => controller.setHideResolved(v),
+                          backgroundColor: Colors.white,
+                          selectedColor: AppTheme.teal.withOpacity(0.2),
+                          checkmarkColor: AppTheme.teal,
+                          elevation: 2,
+                        ),
+                        const SizedBox(width: 8),
+                        ChoiceChip(
+                          label: const Text('Todos'),
+                          selected: controller.filter == null,
+                          onSelected: (_) => controller.setFilter(null),
+                          backgroundColor: Colors.white,
+                          selectedColor: AppTheme.teal.withOpacity(0.2),
+                          elevation: 2,
+                        ),
+                        const SizedBox(width: 8),
+                        ...ReportCategory.values.map((c) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(categoryName(c)),
+                            selected: controller.filter == c,
+                            onSelected: (_) => controller.setFilter(c),
+                            backgroundColor: Colors.white,
+                            selectedColor: AppTheme.teal.withOpacity(0.2),
+                            elevation: 2,
+                          ),
+                        )),
+                      ],
+                    ),
+                  ),
                 ),
                 Positioned(
                   right: 12,
