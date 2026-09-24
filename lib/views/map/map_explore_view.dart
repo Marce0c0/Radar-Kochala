@@ -132,7 +132,7 @@ class _MapExploreViewState extends State<MapExploreView> {
                       urlTemplate:
                           'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName:
-                          'com.example.cochabamba_reporta',
+                          'com.radar.kochala',
                     ),
                     MarkerClusterLayerWidget(
                       options: MarkerClusterLayerOptions(
