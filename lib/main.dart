@@ -12,8 +12,8 @@ void main() async {
   await dotenv.load(fileName: ".env");
 
   await Supabase.initialize(
-    url: 'https://novclixqzicstiuiymwi.supabase.co',
-    publishableKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vdmNsaXhxemljc3RpdWl5bXdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3NDcyMjcsImV4cCI6MjEwNTMyMzIyN30.usrDr1o5xiQSQIJzMcLQug2Qkrqbzkh7EeXdJQRkGRg',
+    url: dotenv.env['SUPABASE_URL'] ?? '',
+    publishableKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
   );
 
   runApp(
