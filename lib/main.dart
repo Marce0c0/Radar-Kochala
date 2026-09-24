@@ -31,7 +31,7 @@ class BachesCochaApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Baches Cocha',
+      title: 'Radar Kochala',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: const RoleSelectionView(),
@@ -124,7 +124,7 @@ class _WelcomeViewState extends State<WelcomeView>
                   const SizedBox(height: 35),
                   // Título Principal
                   const Text(
-                    'BACHES COCHA',
+                    'RADAR KOCHALA',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 32,
