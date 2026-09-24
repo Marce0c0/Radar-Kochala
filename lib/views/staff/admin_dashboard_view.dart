@@ -185,7 +185,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                           children: [
                             TileLayer(
                               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                              userAgentPackageName: 'com.example.cochabamba_reporta',
+                              userAgentPackageName: 'com.radar.kochala',
                             ),
                             CircleLayer(
                               circles: reports.map((r) => CircleMarker(

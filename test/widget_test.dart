@@ -7,7 +7,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:cochabamba_reporta/main.dart';
+import 'package:radar_kochala/main.dart';
 
 void main() {
   testWidgets('Selecciona un rol y permite abrir el mapa ciudadano', (WidgetTester tester) async {
