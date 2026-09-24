@@ -1,11 +1,12 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart'; // kIsWeb, Uint8List
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../services/ai_validation_service.dart';
 import '../../data/models/report.dart';
 
 class NewReportView extends StatefulWidget {
@@ -15,9 +16,6 @@ class NewReportView extends StatefulWidget {
 }
 
 class _NewReportViewState extends State<NewReportView> {
-  // BUILDER: acumulamos los campos del reporte paso a paso usando ReportDraftBuilder
-  // en lugar de construir ReportDraft con todos los parámetros de golpe al final.
-  final _builder = ReportDraftBuilder();
 
   ReportCategory _category = ReportCategory.pothole;
   String _severity = 'Media';
@@ -38,8 +36,12 @@ class _NewReportViewState extends State<NewReportView> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final XFile? picked =
-          await _picker.pickImage(source: source, imageQuality: 70);
+      final XFile? picked = await _picker.pickImage(
+        source: source,
+        imageQuality: 50,
+        maxWidth: 1024,
+        maxHeight: 1024,
+      );
       if (picked == null) return;
 
       if (kIsWeb) {
@@ -235,33 +237,16 @@ class _NewReportViewState extends State<NewReportView> {
     );
 
     try {
-      final String googleApiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
-      if (googleApiKey.isEmpty) throw Exception('API Key no configurada');
-
-      final model =
-          GenerativeModel(model: 'gemini-3.6-flash', apiKey: googleApiKey);
-
-      // Obtenemos los bytes de la imagen de forma compatible web/móvil.
       final Uint8List imageBytes = kIsWeb
           ? _imageBytes!
           : await File(_imagePath!).readAsBytes();
 
-      final prompt = TextPart(
-        'Eres un inspector municipal. El usuario quiere reportar la categoría: '
-        '"${categoryName(_category)}". Analiza la imagen. Si la imagen realmente '
-        'muestra ese problema urbano en la calle, responde EXACTAMENTE con la '
-        'palabra "VALIDO". Si es una foto falsa, un meme, una persona, una '
-        'habitación interior, o no tiene nada que ver con el problema, responde '
-        'EXACTAMENTE con la palabra "INVALIDO".',
-      );
-      final imagePart = DataPart('image/jpeg', imageBytes);
-
-      final response =
-          await model.generateContent([Content.multi([prompt, imagePart])]);
+      final validationText = await AiValidationService.validateLocalImage(
+          imageBytes, categoryName(_category));
 
       if (mounted) Navigator.pop(context);
 
-      final veredicto = response.text?.trim().toUpperCase() ?? '';
+      final veredicto = validationText.trim().toUpperCase();
 
       if (veredicto.contains('INVALIDO')) {
         if (mounted) {
@@ -278,25 +263,38 @@ class _NewReportViewState extends State<NewReportView> {
       }
 
       if (mounted) {
-        // BUILDER: construimos el ReportDraft de forma fluida con el builder,
-        // pasando tanto el path (móvil) como los bytes (web).
-        final draft = _builder
-            .category(_category)
-            .description(_description.text.trim())
-            .severity(_severity)
-            .image(kIsWeb ? null : _imagePath)
-            .imageBytes(kIsWeb ? _imageBytes?.toList() : null)
-            .build();
+        final draft = ReportDraft(
+          category: _category,
+          description: _description.text.trim(),
+          severity: _severity,
+          imageUrl: kIsWeb ? null : _imagePath,
+          imageBytes: kIsWeb ? _imageBytes?.toList() : null,
+          isAiVerified: true,
+        );
 
         Navigator.pop(context, draft);
       }
     } catch (e) {
       if (mounted) {
-        Navigator.pop(context);
+        Navigator.pop(context); // Cerrar diálogo
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Error al conectar con la IA de verificación.')),
+            content: Text('Sin conexión a la IA. Guardando reporte sin validación.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
         );
+        
+        final draft = ReportDraft(
+          category: _category,
+          description: _description.text.trim(),
+          severity: _severity,
+          imageUrl: kIsWeb ? null : _imagePath,
+          imageBytes: kIsWeb ? _imageBytes?.toList() : null,
+          isAiVerified: false,
+        );
+            
+        Navigator.pop(context, draft);
       }
     }
   }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../core/presentation_strategies.dart';
 import '../../data/models/report.dart';
 import 'status_pill.dart';
 
@@ -61,10 +60,18 @@ class _ReportCardState extends State<ReportCard> {
         await client.from('votes').insert({
           'report_id': widget.report.id,
           'user_id': userId,
+          'vote_value': 1,
         });
         if (mounted) setState(() { _votes++; _voted = true; });
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error al registrar voto: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al procesar el voto: $e')),
+        );
+      }
+    }
     if (mounted) setState(() => _votingLoading = false);
   }
 

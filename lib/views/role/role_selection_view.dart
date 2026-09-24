@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/app_theme.dart';
+import '../auth/register_view.dart';
 import '../home/home_view.dart';
-import '../staff/staff_views.dart';
+import '../staff/admin_dashboard_view.dart';
+import '../staff/staff_hub_view.dart';
+import '../staff/field_worker_view.dart';
 
 class RoleSelectionView extends StatefulWidget {
   const RoleSelectionView({super.key});
@@ -62,7 +65,7 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
           _open(const FieldWorkerView());
         case 'admin':
         case 'superadmin':
-          _open(const StaffHubView(initialSection: 3));
+          _open(const AdminDashboardView());
         default:
           // ciudadano o rol no reconocido → HomeView
           _open(const HomeView());
@@ -258,7 +261,10 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
                       width: double.infinity,
                       height: 50,
                       child: OutlinedButton(
-                        onPressed: _signUp,
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const RegisterView()),
+                        ),
                         style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: AppTheme.teal),
                             shape: RoundedRectangleBorder(

@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 enum ReportCategory {
   pothole,
   waste,
@@ -27,6 +29,33 @@ String statusName(ReportStatus s) => switch (s) {
       ReportStatus.resolved => 'Resuelto',
     };
 
+IconData categoryIcon(ReportCategory c) => switch (c) {
+      ReportCategory.pothole => Icons.warning_amber_rounded,
+      ReportCategory.waste => Icons.delete_outline,
+      ReportCategory.lighting => Icons.lightbulb_outline,
+      ReportCategory.publicSpace => Icons.park_outlined,
+      ReportCategory.waterLeak => Icons.water_drop_outlined,
+      ReportCategory.trafficLight => Icons.traffic_outlined,
+      ReportCategory.vandalism => Icons.format_paint_outlined,
+    };
+
+Color categoryColor(ReportCategory c) => switch (c) {
+      ReportCategory.pothole => const Color(0xffd9684b),
+      ReportCategory.waste => const Color(0xff718d43),
+      ReportCategory.lighting => const Color(0xffd99a3d),
+      ReportCategory.publicSpace => const Color(0xff0eb6c2),
+      ReportCategory.waterLeak => Colors.blue,
+      ReportCategory.trafficLight => Colors.redAccent,
+      ReportCategory.vandalism => Colors.purple,
+    };
+
+Color statusColor(ReportStatus s) => switch (s) {
+      ReportStatus.reported => const Color(0xff6c7c88),
+      ReportStatus.reviewing => const Color(0xffd99a3d),
+      ReportStatus.inProgress => const Color(0xff0eb6c2),
+      ReportStatus.resolved => const Color(0xff5b954b),
+    };
+
 class Report {
   const Report({
     required this.id,
@@ -40,7 +69,9 @@ class Report {
     this.latitude,
     this.longitude,
     this.imageUrl,
+    this.authorId,
     this.isMine = false,
+    this.isAiVerified = false,
   });
 
   final String id;
@@ -54,10 +85,10 @@ class Report {
   final double? latitude;
   final double? longitude;
   final String? imageUrl;
+  final String? authorId;
   final bool isMine;
+  final bool isAiVerified;
 
-  // FACTORY METHOD: centraliza la deserialización desde Supabase,
-  // evitando que el Repository construya el objeto manualmente.
   factory Report.fromMap(Map<String, dynamic> data, {String? currentUserId}) {
     // Calcula el tiempo relativo desde created_at real de la BD.
     final createdAt = data['created_at'] != null
@@ -83,7 +114,9 @@ class Report {
       latitude: (data['latitude'] as num?)?.toDouble(),
       longitude: (data['longitude'] as num?)?.toDouble(),
       imageUrl: data['image_url'] as String?,
+      authorId: data['author_id'] as String?,
       isMine: currentUserId != null && currentUserId == data['author_id'],
+      isAiVerified: data['is_ai_verified'] == true,
     );
   }
 
@@ -113,62 +146,7 @@ class Report {
 
 }
 
-// BUILDER: permite construir un ReportDraft paso a paso,
-// útil cuando los campos se recopilan en distintas pantallas/pasos.
-class ReportDraftBuilder {
-  ReportCategory _category = ReportCategory.pothole;
-  String _description = '';
-  String _severity = 'Media';
-  double? _latitude;
-  double? _longitude;
-  String? _imageUrl;
-  List<int>? _imageBytes;
 
-  ReportDraftBuilder category(ReportCategory c) {
-    _category = c;
-    return this;
-  }
-
-  ReportDraftBuilder description(String d) {
-    _description = d;
-    return this;
-  }
-
-  ReportDraftBuilder severity(String s) {
-    _severity = s;
-    return this;
-  }
-
-  ReportDraftBuilder location(double lat, double lng) {
-    _latitude = lat;
-    _longitude = lng;
-    return this;
-  }
-
-  ReportDraftBuilder image(String? url) {
-    _imageUrl = url;
-    return this;
-  }
-
-  // Builder para bytes (soporte Flutter Web, donde dart:io no existe).
-  ReportDraftBuilder imageBytes(List<int>? bytes) {
-    _imageBytes = bytes;
-    return this;
-  }
-
-  ReportDraft build() {
-    assert(_description.isNotEmpty, 'La descripción no puede estar vacía');
-    return ReportDraft(
-      category: _category,
-      description: _description,
-      severity: _severity,
-      latitude: _latitude,
-      longitude: _longitude,
-      imageUrl: _imageUrl,
-      imageBytes: _imageBytes,
-    );
-  }
-}
 
 class ReportDraft {
   const ReportDraft({
@@ -179,6 +157,7 @@ class ReportDraft {
     this.longitude,
     this.imageUrl,
     this.imageBytes,
+    this.isAiVerified = false,
   });
 
   final ReportCategory category;
@@ -190,6 +169,58 @@ class ReportDraft {
   final String? imageUrl;
   /// Bytes de la imagen (web). Null en móvil/desktop.
   final List<int>? imageBytes;
+  final bool isAiVerified;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'category': category.name,
+      'description': description,
+      'severity': severity,
+      'latitude': latitude,
+      'longitude': longitude,
+      'imageUrl': imageUrl,
+      'isAiVerified': isAiVerified,
+      // No guardamos imageBytes en JSON porque es muy pesado y la cola offline 
+      // está pensada principalmente para móvil (donde usamos imageUrl/filePath).
+    };
+  }
+
+  factory ReportDraft.fromJson(Map<String, dynamic> map) {
+    return ReportDraft(
+      category: ReportCategory.values.firstWhere(
+        (e) => e.name == map['category'],
+        orElse: () => ReportCategory.pothole,
+      ),
+      description: map['description'] ?? '',
+      severity: map['severity'] ?? 'Media',
+      latitude: map['latitude'] as double?,
+      longitude: map['longitude'] as double?,
+      imageUrl: map['imageUrl'] as String?,
+      isAiVerified: map['isAiVerified'] == true,
+    );
+  }
+
+  ReportDraft copyWith({
+    ReportCategory? category,
+    String? description,
+    String? severity,
+    double? latitude,
+    double? longitude,
+    String? imageUrl,
+    List<int>? imageBytes,
+    bool? isAiVerified,
+  }) {
+    return ReportDraft(
+      category: category ?? this.category,
+      description: description ?? this.description,
+      severity: severity ?? this.severity,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      imageUrl: imageUrl ?? this.imageUrl,
+      imageBytes: imageBytes ?? this.imageBytes,
+      isAiVerified: isAiVerified ?? this.isAiVerified,
+    );
+  }
 }
 
 class ReportUpdate {

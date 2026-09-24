@@ -1,12 +1,12 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/app_theme.dart';
+import '../../services/ai_validation_service.dart';
 import '../../data/models/report.dart';
 
 class MapNewReportView extends StatefulWidget {
@@ -18,9 +18,6 @@ class MapNewReportView extends StatefulWidget {
 }
 
 class _MapNewReportViewState extends State<MapNewReportView> {
-  // BUILDER: acumulamos categoría, descripción, ubicación e imagen
-  // antes de construir el ReportDraft final al pulsar enviar.
-  final _builder = ReportDraftBuilder();
 
   ReportCategory _category = ReportCategory.pothole;
   String _severity = 'Media';
@@ -51,8 +48,12 @@ class _MapNewReportViewState extends State<MapNewReportView> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final XFile? picked =
-          await _picker.pickImage(source: source, imageQuality: 70);
+      final XFile? picked = await _picker.pickImage(
+        source: source,
+        imageQuality: 50,
+        maxWidth: 1024,
+        maxHeight: 1024,
+      );
       if (picked == null) return;
       if (kIsWeb) {
         final bytes = await picked.readAsBytes();
@@ -130,6 +131,12 @@ class _MapNewReportViewState extends State<MapNewReportView> {
                     options: MapOptions(
                       initialCenter: widget.initialLocation,
                       initialZoom: 16.0,
+                      cameraConstraint: CameraConstraint.contain(
+                        bounds: LatLngBounds(
+                          const LatLng(-17.25, -66.30),
+                          const LatLng(-17.50, -65.90),
+                        ),
+                      ),
                       onPositionChanged: (position, hasGesture) {
                         if (hasGesture) {
                           setState(() => _selectedLocation = position.center);
@@ -281,6 +288,63 @@ class _MapNewReportViewState extends State<MapNewReportView> {
     }
 
     if (!mounted) return;
+
+    // --- CHECK ANTI-DUPLICADOS ---
+    try {
+      final nearby = await Supabase.instance.client.rpc('check_nearby_reports', params: {
+        'p_lat': _selectedLocation.latitude,
+        'p_lng': _selectedLocation.longitude,
+        'p_category': _category.name,
+        'p_radius_meters': 150.0,
+      });
+
+      if (nearby != null && (nearby as List).isNotEmpty && mounted) {
+        final dup = nearby.first as Map<String, dynamic>;
+        final distMeters = (dup['distance_meters'] as num).round();
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('Posible duplicado'),
+            ]),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Ya existe un reporte similar a $distMeters metros de este punto:'),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(10)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(dup['title']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text('Estado: ${dup['status']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text('¿Tu reporte es diferente a este? Confirma para continuar.'),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+              FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sí, es diferente')),
+            ],
+          ),
+        );
+        if (confirmed != true) return;
+      }
+    } catch (e) {
+      debugPrint('Error al verificar duplicados: $e');
+      // No bloqueamos si falla — seguimos con el flujo normal
+    }
+    // --- FIN CHECK ANTI-DUPLICADOS ---
+
+    if (!mounted) return;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -294,31 +358,16 @@ class _MapNewReportViewState extends State<MapNewReportView> {
     );
 
     try {
-      final String googleApiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
-      if (googleApiKey.isEmpty) throw Exception('API Key no configurada');
-
-      final model =
-          GenerativeModel(model: 'gemini-3.6-flash', apiKey: googleApiKey);
-
-      // Compatible web/móvil.
       final Uint8List imageBytes = kIsWeb
           ? _imageBytes!
           : await File(_imagePath!).readAsBytes();
 
-      final prompt = TextPart(
-        'Eres un inspector municipal. El usuario quiere reportar la categoría: '
-        '"${categoryName(_category)}". Analiza la imagen. Si la imagen realmente '
-        'muestra ese problema urbano en la calle, responde EXACTAMENTE con la '
-        'palabra "VALIDO". Si es una foto falsa, un meme, una persona, o no '
-        'tiene nada que ver con el problema, responde EXACTAMENTE "INVALIDO".',
-      );
-      final imagePart = DataPart('image/jpeg', imageBytes);
-      final response =
-          await model.generateContent([Content.multi([prompt, imagePart])]);
+      final validationText = await AiValidationService.validateLocalImage(
+          imageBytes, categoryName(_category));
 
       if (mounted) Navigator.pop(context);
 
-      final veredicto = response.text?.trim().toUpperCase() ?? '';
+      final veredicto = validationText.trim().toUpperCase();
 
       if (veredicto.contains('INVALIDO')) {
         if (mounted) {
@@ -335,25 +384,42 @@ class _MapNewReportViewState extends State<MapNewReportView> {
       }
 
       if (mounted) {
-        // BUILDER: construimos el ReportDraft con ubicación e imagen.
-        final draft = _builder
-            .category(_category)
-            .description(_description.text.trim())
-            .severity(_severity)
-            .location(_selectedLocation.latitude, _selectedLocation.longitude)
-            .image(kIsWeb ? null : _imagePath)
-            .imageBytes(kIsWeb ? _imageBytes?.toList() : null)
-            .build();
+        final draft = ReportDraft(
+          category: _category,
+          description: _description.text.trim(),
+          severity: _severity,
+          latitude: _selectedLocation.latitude,
+          longitude: _selectedLocation.longitude,
+          imageUrl: kIsWeb ? null : _imagePath,
+          imageBytes: kIsWeb ? _imageBytes?.toList() : null,
+          isAiVerified: true,
+        );
 
         Navigator.pop(context, draft);
       }
     } catch (e) {
       if (mounted) {
-        Navigator.pop(context);
+        Navigator.pop(context); // Cerrar diálogo
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Error al conectar con la IA de verificación.')),
+            content: Text('Sin conexión a la IA. Guardando reporte sin validación.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
         );
+        
+        final draft = ReportDraft(
+          category: _category,
+          description: _description.text.trim(),
+          severity: _severity,
+          latitude: _selectedLocation.latitude,
+          longitude: _selectedLocation.longitude,
+          imageUrl: kIsWeb ? null : _imagePath,
+          imageBytes: kIsWeb ? _imageBytes?.toList() : null,
+          isAiVerified: false,
+        );
+            
+        Navigator.pop(context, draft);
       }
     }
   }
