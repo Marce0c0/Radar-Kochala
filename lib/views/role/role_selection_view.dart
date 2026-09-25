@@ -112,41 +112,6 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
     }
   }
 
-  Future<void> _signUp() async {
-    final email = _emailCtrl.text.trim().toLowerCase();
-    final password = _passwordCtrl.text.trim();
-
-    if (email.isEmpty || !email.contains('@')) {
-      _showError('Ingresa un correo electrónico válido.');
-      return;
-    }
-    if (password.length < 6) {
-      _showError('La contraseña debe tener al menos 6 caracteres.');
-      return;
-    }
-
-    FocusScope.of(context).unfocus();
-    setState(() => _isLoading = true);
-
-    try {
-      final res = await Supabase.instance.client.auth
-          .signUp(email: email, password: password);
-      if (res.user != null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('¡Cuenta creada! Bienvenido.')),
-          );
-        }
-        await _routeUserById(res.user!.id);
-      }
-    } on AuthException catch (e) {
-      _showError(_authErrorMessage(e.message));
-    } catch (e) {
-      _showError('Error al registrarse. Revisa tu conexión.');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
 
   // Traduce mensajes de error de Supabase (en inglés) al español.
   String _authErrorMessage(String msg) {

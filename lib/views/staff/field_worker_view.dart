@@ -1,20 +1,18 @@
 import 'staff_shared_widgets.dart';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../controllers/report_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/report.dart';
-import '../reports/detail_view.dart';
 import '../role/role_selection_view.dart';
 import '../widgets/report_card.dart';
 import '../widgets/status_pill.dart';
 import '../../services/ai_validation_service.dart';
+import '../../services/offline_sync_service.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 // sesión (signOut + navegación), evitando duplicar este bloque en cada vista.
 Future<void> _logout(BuildContext context) async {
@@ -414,6 +412,26 @@ class _TaskExecutionViewState extends State<TaskExecutionView> {
     setState(() => _isUploading = true);
 
     try {
+      final connectivityResult = await Connectivity().checkConnectivity();
+      final isOffline = connectivityResult is List 
+          ? (connectivityResult as List).contains(ConnectivityResult.none) 
+          : connectivityResult == ConnectivityResult.none;
+      final ext = _imagePath?.split('.').last ?? 'jpg';
+
+      if (isOffline) {
+        await OfflineSyncService.queueResolvedTask(
+          report: widget.report,
+          notes: _note.text.trim(),
+          imageBytes: Uint8List.fromList(_imageBytes!),
+          ext: ext,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sin conexión: Tarea guardada localmente.')));
+          Navigator.pop(context);
+        }
+        return;
+      }
+
       // 1. Validar con IA
       final validation = await AiValidationService.validateResolutionImage(
         Uint8List.fromList(_imageBytes!), 
@@ -427,7 +445,6 @@ class _TaskExecutionViewState extends State<TaskExecutionView> {
       }
 
       // 2. Subir imagen, actualizar estado a Resuelto y sumar puntos
-      final ext = _imagePath?.split('.').last ?? 'jpg';
       await context.read<ReportController>().resolveReport(widget.report, _imageBytes!, ext);
 
       // 3. Guardar las notas del trabajador en la tabla assignments
@@ -461,6 +478,9 @@ class _TaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(margin: const EdgeInsets.only(bottom: 10), child: ListTile(leading: const CircleAvatar(backgroundColor: Color(0xffdcebe6), child: Icon(Icons.build_outlined, color: AppTheme.teal)), title: Text(report.title, maxLines: 1), subtitle: Text('${report.neighborhood} · Gravedad ${report.severity}'), trailing: FilledButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TaskExecutionView(report: report))), child: Text(action))));
 }
+
+
+
 
 
 
