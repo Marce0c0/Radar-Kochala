@@ -1,11 +1,6 @@
 import 'staff_shared_widgets.dart';
 import 'staff_map_view.dart';
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../controllers/report_controller.dart';
@@ -14,7 +9,6 @@ import '../../data/models/report.dart';
 import '../reports/detail_view.dart';
 import '../role/role_selection_view.dart';
 import '../widgets/report_card.dart';
-import '../widgets/status_pill.dart';
 import '../../services/ai_validation_service.dart';
 
 // sesión (signOut + navegación), evitando duplicar este bloque en cada vista.
@@ -110,16 +104,32 @@ class _StaffHubViewState extends State<StaffHubView> {
   void _openReport(Report report) => Navigator.push(context, MaterialPageRoute(builder: (_) => ValidateReportView(report: report)));
 }
 
-class _OperatorBoard extends StatelessWidget {
+class _OperatorBoard extends StatefulWidget {
   const _OperatorBoard({required this.reports, required this.onOpen});
   final List<Report> reports;
   final ValueChanged<Report> onOpen;
-  
+
+  @override
+  State<_OperatorBoard> createState() => _OperatorBoardState();
+}
+
+class _OperatorBoardState extends State<_OperatorBoard> {
+  ReportCategory? _filterCategory;
+  bool _onlyHighSeverity = false;
+
   @override
   Widget build(BuildContext context) {
-    final reported = reports.where((r) => r.status == ReportStatus.reported).toList();
-    final inProgress = reports.where((r) => r.status == ReportStatus.inProgress || r.status == ReportStatus.reviewing).toList();
-    final resolved = reports.where((r) => r.status == ReportStatus.resolved).length;
+    var filtered = widget.reports;
+    if (_filterCategory != null) {
+      filtered = filtered.where((r) => r.category == _filterCategory).toList();
+    }
+    if (_onlyHighSeverity) {
+      filtered = filtered.where((r) => r.severity == 'Alta').toList();
+    }
+
+    final reported = filtered.where((r) => r.status == ReportStatus.reported).toList();
+    final inProgress = filtered.where((r) => r.status == ReportStatus.inProgress || r.status == ReportStatus.reviewing).toList();
+    final resolved = filtered.where((r) => r.status == ReportStatus.resolved).length;
 
     return NotificationListener<ScrollEndNotification>(
       onNotification: (scrollInfo) {
@@ -134,13 +144,47 @@ class _OperatorBoard extends StatelessWidget {
         const StaffPageIntro(title: 'Panel operador', subtitle: 'Distrito Centro · Turno mañana'),
         StaffStatsRow(items: [('${reported.length}', 'Nuevos'), ('${inProgress.length}', 'En proceso'), ('$resolved', 'Resueltos')]),
         
+        const SizedBox(height: 24),
+        const Text('Filtros Avanzados', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              FilterChip(
+                label: const Text('Solo Alta Severidad'),
+                selected: _onlyHighSeverity,
+                onSelected: (val) => setState(() => _onlyHighSeverity = val),
+              ),
+              const SizedBox(width: 8),
+              FilterChip(
+                label: const Text('Baches'),
+                selected: _filterCategory == ReportCategory.pothole,
+                onSelected: (val) => setState(() => _filterCategory = val ? ReportCategory.pothole : null),
+              ),
+              const SizedBox(width: 8),
+              FilterChip(
+                label: const Text('Basura'),
+                selected: _filterCategory == ReportCategory.waste,
+                onSelected: (val) => setState(() => _filterCategory = val ? ReportCategory.waste : null),
+              ),
+              const SizedBox(width: 8),
+              FilterChip(
+                label: const Text('Luminaria'),
+                selected: _filterCategory == ReportCategory.lighting,
+                onSelected: (val) => setState(() => _filterCategory = val ? ReportCategory.lighting : null),
+              ),
+            ],
+          ),
+        ),
+        
         const StaffHeading('Requieren validación (Nuevos)'),
         if (reported.isEmpty) const Text('No hay reportes nuevos', style: TextStyle(color: Colors.grey)),
-        ...reported.map((r) => StaffReportTile(report: r, action: 'Validar', onTap: () => onOpen(r))),
+        ...reported.map((r) => StaffReportTile(report: r, action: 'Validar', onTap: () => widget.onOpen(r))),
         
         const StaffHeading('En proceso'),
         if (inProgress.isEmpty) const Text('No hay tareas en ejecución', style: TextStyle(color: Colors.grey)),
-        ...inProgress.map((r) => StaffReportTile(report: r, action: 'Ver estado', onTap: () => onOpen(r))),
+        ...inProgress.map((r) => StaffReportTile(report: r, action: 'Ver estado', onTap: () => widget.onOpen(r))),
           if (context.watch<ReportController>().loadingMore)
             const Padding(
               padding: EdgeInsets.all(16.0),
@@ -378,6 +422,7 @@ class _TeamViewState extends State<_TeamView> {
     );
   }
 }
+
 
 
 

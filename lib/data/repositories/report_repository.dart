@@ -4,8 +4,6 @@ import 'package:flutter/foundation.dart'; // kIsWeb + debugPrint
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/report.dart';
-import '../providers/local_db_provider.dart';
-
 
 // REPOSITORIO: Maneja el acceso a los datos en Supabase.
 class ReportRepository {
@@ -18,50 +16,30 @@ class ReportRepository {
 
   Future<void> saveDraftToQueue(ReportDraft draft) async {
     final jsonStr = jsonEncode(draft.toJson());
-    if (kIsWeb) {
-      final prefs = await SharedPreferences.getInstance();
-      final queue = prefs.getStringList(_offlineQueueKey) ?? [];
-      queue.add(jsonStr);
-      await prefs.setStringList(_offlineQueueKey, queue);
-    } else {
-      await LocalDbProvider().enqueue(jsonStr);
-    }
+    final prefs = await SharedPreferences.getInstance();
+    final queue = prefs.getStringList(_offlineQueueKey) ?? [];
+    queue.add(jsonStr);
+    await prefs.setStringList(_offlineQueueKey, queue);
   }
 
   Future<void> syncQueue() async {
-    if (kIsWeb) {
-      final prefs = await SharedPreferences.getInstance();
-      final queue = prefs.getStringList(_offlineQueueKey) ?? [];
-      if (queue.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final queue = prefs.getStringList(_offlineQueueKey) ?? [];
+    if (queue.isEmpty) return;
 
-      List<String> remaining = [];
-      for (final item in queue) {
-        try {
-          final draftMap = jsonDecode(item);
-          final draft = ReportDraft.fromJson(draftMap);
-          await createReport(draft); 
-        } catch (e) {
-          debugPrint('Error syncing offline report: $e');
-          remaining.add(item); 
-        }
-      }
-      
-      await prefs.setStringList(_offlineQueueKey, remaining);
-    } else {
-      final queue = await LocalDbProvider().getQueue();
-      for (final row in queue) {
-        try {
-          final item = row['json_data'] as String;
-          final id = row['id'] as int;
-          final draftMap = jsonDecode(item);
-          final draft = ReportDraft.fromJson(draftMap);
-          await createReport(draft);
-          await LocalDbProvider().deleteFromQueue(id);
-        } catch (e) {
-          debugPrint('Error syncing sqlite offline report: $e');
-        }
+    List<String> remaining = [];
+    for (final item in queue) {
+      try {
+        final draftMap = jsonDecode(item);
+        final draft = ReportDraft.fromJson(draftMap);
+        await createReport(draft); 
+      } catch (e) {
+        debugPrint('Error syncing offline report: \$e');
+        remaining.add(item); 
       }
     }
+    
+    await prefs.setStringList(_offlineQueueKey, remaining);
   }
 
   Future<List<Report>> fetchReports({int limit = 50, int offset = 0}) async {
@@ -77,7 +55,7 @@ class ReportRepository {
           .map((data) => Report.fromMap(data, currentUserId: _currentUserId))
           .toList();
     } catch (e) {
-      debugPrint('Error al cargar reportes: $e');
+      debugPrint('Error al cargar reportes: \$e');
       return [];
     }
   }
@@ -89,26 +67,26 @@ class ReportRepository {
     if (kIsWeb && draft.imageBytes != null) {
       try {
         final fileName =
-            '${DateTime.now().millisecondsSinceEpoch}_$_currentUserId.jpg';
+            '\${DateTime.now().millisecondsSinceEpoch}_\$_currentUserId.jpg';
         await _client.storage
             .from('report_images')
-            .uploadBinary(fileName, Uint8List.fromList(draft.imageBytes!));
+            .uploadBinary(fileName, Uint8List.fromList(draft.imageBytes!), fileOptions: const FileOptions(contentType: 'image/jpeg'));
         finalImageUrl =
             _client.storage.from('report_images').getPublicUrl(fileName);
       } catch (e) {
-        debugPrint('Error al subir imagen (web): $e');
+        debugPrint('Error al subir imagen (web): \$e');
       }
     } else if (!kIsWeb && draft.imageUrl != null && draft.imageUrl!.isNotEmpty) {
       try {
         final file = File(draft.imageUrl!);
         final fileExt = file.path.split('.').last;
         final fileName =
-            '${DateTime.now().millisecondsSinceEpoch}_$_currentUserId.$fileExt';
+            '\${DateTime.now().millisecondsSinceEpoch}_\$_currentUserId.\$fileExt';
         await _client.storage.from('report_images').upload(fileName, file);
         finalImageUrl =
             _client.storage.from('report_images').getPublicUrl(fileName);
       } catch (e) {
-        debugPrint('Error al subir imagen (móvil): $e');
+        debugPrint('Error al subir imagen (móvil): \$e');
       }
     }
 
@@ -129,7 +107,7 @@ class ReportRepository {
     }
 
     final response = await _client.from('reports').insert({
-      // Título limpio — sin la redundante palabra "reportado".
+      // Título limpio - sin la redundante palabra "reportado".
       'title': categoryName(draft.category),
       'description': draft.description,
       'category': draft.category.name,
@@ -160,7 +138,7 @@ class ReportRepository {
 
   Future<void> resolveReport(Report report, List<int> imageBytes, String imageExtension) async {
     // Subir la imagen de prueba de trabajo
-    final fileName = 'resolved_${DateTime.now().millisecondsSinceEpoch}_${report.id}.$imageExtension';
+    final fileName = 'resolved_\${DateTime.now().millisecondsSinceEpoch}_\${report.id}.\$imageExtension';
     await _client.storage.from('report_images').uploadBinary(fileName, Uint8List.fromList(imageBytes));
     final resolvedImageUrl = _client.storage.from('report_images').getPublicUrl(fileName);
 
@@ -175,7 +153,7 @@ class ReportRepository {
       try {
         await _client.rpc('increment_points', params: {'user_id': report.authorId, 'amount': 10});
       } catch (e) {
-        debugPrint('Error incrementing points: $e');
+        debugPrint('Error incrementing points: \$e');
       }
     }
   }

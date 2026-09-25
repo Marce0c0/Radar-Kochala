@@ -68,16 +68,31 @@ class _HomeViewState extends State<HomeView> {
   Future<void> _newReport() async {
     final draft = await Navigator.push<ReportDraft>(
       context,
-      MaterialPageRoute(builder: (_) => const NewReportView()),
+      MaterialPageRoute(
+          builder: (_) => const NewReportView()),
     );
     if (draft != null) {
       if (!mounted) return;
-      await context.read<ReportController>().create(draft);
+      final result = await context.read<ReportController>().create(draft);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('¡Reporte enviado exitosamente!')),
+      
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(result != null ? '¡Éxito!' : 'Aviso'),
+          content: Text(result != null 
+              ? 'El reporte ha sido publicado y guardado en la base de datos central.' 
+              : 'Hubo un problema de conexión. El reporte ha sido guardado localmente y se sincronizará cuando haya internet.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Entendido'),
+            ),
+          ],
+        ),
       );
-      // Recarga la lista para reflejar el nuevo reporte inmediatamente.
+
+      // Recarga la lista
       if (mounted) await context.read<ReportController>().load();
     }
   }
@@ -195,6 +210,7 @@ class _ExploreView extends StatelessWidget {
               child: Center(child: CircularProgressIndicator()),
             ),
         ],
+      ),
       ),
     );
   }
