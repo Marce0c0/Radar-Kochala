@@ -182,10 +182,64 @@ class _DetailViewState extends State<DetailView> {
                 height: 1.2),
           ),
           const SizedBox(height: 14),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               StatusPill(status: report.status),
-              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: report.severity == 'Alta' 
+                      ? const Color(0xfffce8e8) 
+                      : (report.severity == 'Media' ? const Color(0xfffef3c7) : const Color(0xffe8f4f2)),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: report.severity == 'Alta' 
+                      ? const Color(0xffd9684b).withOpacity(0.3) 
+                      : (report.severity == 'Media' ? const Color(0xffd99a3d).withOpacity(0.3) : const Color(0xff2d8c7e).withOpacity(0.3)),
+                  ),
+                ),
+                child: Text(
+                  'Prioridad: ',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: report.severity == 'Alta' 
+                      ? const Color(0xffd9684b) 
+                      : (report.severity == 'Media' ? const Color(0xffd99a3d) : const Color(0xff2d8c7e)),
+                  ),
+                ),
+              ),
+              if (report.isAiVerified)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xfff0edff),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xff7c3aed).withOpacity(0.3)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.auto_awesome, size: 12, color: Color(0xff7c3aed)),
+                      SizedBox(width: 4),
+                      Text(
+                        'IA Verificado',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xff7c3aed),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
               Expanded(
                 child: Row(
                   children: [

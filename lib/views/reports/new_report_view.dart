@@ -1,10 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart'; // kIsWeb, Uint8List
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/ai_validation_service.dart';
 import '../../data/models/report.dart';
@@ -250,12 +247,18 @@ class _NewReportViewState extends State<NewReportView> {
 
       if (veredicto.contains('INVALIDO')) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              backgroundColor: Color(0xffd9684b),
-              content: Text(
-                  '❌ Sistema Anti-Fraude: La imagen no parece corresponder a un reporte real de esta categoría.'),
-              duration: Duration(seconds: 4),
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              title: const Text('❌ Sistema Anti-Fraude'),
+              content: const Text('La imagen proporcionada no parece corresponder a un reporte real de esta categoría. Por favor intenta con otra foto.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Entendido'),
+                ),
+              ],
             ),
           );
         }
@@ -277,14 +280,23 @@ class _NewReportViewState extends State<NewReportView> {
     } catch (e) {
       if (mounted) {
         Navigator.pop(context); // Cerrar diálogo
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Sin conexión a la IA. Guardando reporte sin validación.'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 3),
+        
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('⚠️ Sin conexión a la IA'),
+            content: const Text('No se pudo verificar la imagen automáticamente en este momento. Guardando reporte sin validación por IA.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Entendido'),
+              ),
+            ],
           ),
         );
-        
+
+        if (!mounted) return;
         final draft = ReportDraft(
           category: _category,
           description: _description.text.trim(),
@@ -293,7 +305,7 @@ class _NewReportViewState extends State<NewReportView> {
           imageBytes: kIsWeb ? _imageBytes?.toList() : null,
           isAiVerified: false,
         );
-            
+
         Navigator.pop(context, draft);
       }
     }

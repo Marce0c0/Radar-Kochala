@@ -65,14 +65,47 @@ class _MapExploreViewState extends State<MapExploreView> {
               MapNewReportView(initialLocation: location)),
     );
     if (draft != null) {
-      if (!context.mounted) return;
-      await context.read<ReportController>().create(draft);
-      // Recargamos para que el nuevo pin aparezca en el mapa inmediatamente.
-      if (context.mounted) await context.read<ReportController>().load();
-    }
-  }
+        if (!context.mounted) return;
+        
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const AlertDialog(
+            content: Row(children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 20),
+              Text('Publicando reporte...'),
+            ]),
+          ),
+        );
 
-  void _safeMove(LatLng center, double zoom) {
+        final result = await context.read<ReportController>().create(draft);
+        
+        if (!context.mounted) return;
+        Navigator.pop(context); // Oculta indicador
+        
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: Text(result != null ? '¡Reporte Publicado!' : 'Atención', style: const TextStyle(fontWeight: FontWeight.bold)),
+            content: Text(result != null 
+                ? 'Tu reporte fue validado por la IA y ha sido publicado exitosamente para que las autoridades lo atiendan.' 
+                : 'Ocurrió un problema de red o de permisos al publicar en la nube. El reporte ha sido guardado localmente (Offline) y se publicará en cuanto se pueda.'),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Entendido'),
+              ),
+            ],
+          ),
+        );
+
+        if (context.mounted) await context.read<ReportController>().load();
+      }
+    }
+  
+    void _safeMove(LatLng center, double zoom) {
     try {
       _mapController.move(center, zoom);
     } catch (_) {}
@@ -132,7 +165,7 @@ class _MapExploreViewState extends State<MapExploreView> {
                       urlTemplate:
                           'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName:
-                          'com.example.cochabamba_reporta',
+                          'com.radar.kochala',
                     ),
                     MarkerClusterLayerWidget(
                       options: MarkerClusterLayerOptions(
@@ -201,7 +234,7 @@ class _MapExploreViewState extends State<MapExploreView> {
                           selected: controller.hideResolved,
                           onSelected: (v) => controller.setHideResolved(v),
                           backgroundColor: Colors.white,
-                          selectedColor: AppTheme.teal.withOpacity(0.2),
+                          selectedColor: AppTheme.teal.withValues(alpha: 0.2),
                           checkmarkColor: AppTheme.teal,
                           elevation: 2,
                         ),
@@ -211,7 +244,7 @@ class _MapExploreViewState extends State<MapExploreView> {
                           selected: controller.filter == null,
                           onSelected: (_) => controller.setFilter(null),
                           backgroundColor: Colors.white,
-                          selectedColor: AppTheme.teal.withOpacity(0.2),
+                          selectedColor: AppTheme.teal.withValues(alpha: 0.2),
                           elevation: 2,
                         ),
                         const SizedBox(width: 8),
@@ -222,7 +255,7 @@ class _MapExploreViewState extends State<MapExploreView> {
                             selected: controller.filter == c,
                             onSelected: (_) => controller.setFilter(c),
                             backgroundColor: Colors.white,
-                            selectedColor: AppTheme.teal.withOpacity(0.2),
+                            selectedColor: AppTheme.teal.withValues(alpha: 0.2),
                             elevation: 2,
                           ),
                         )),
