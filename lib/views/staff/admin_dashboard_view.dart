@@ -700,7 +700,7 @@ class _StaffTabState extends State<_StaffTab> {
                           .eq('id', userId);
                       
                       if (ctx.mounted) Navigator.pop(ctx);
-                      _loadUsers();
+                      _loadStaff();
                       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Personal creado con éxito')));
                     } else {
                       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${res.body}')));
