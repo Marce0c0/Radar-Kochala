@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
@@ -5,9 +6,14 @@ import 'package:http/http.dart' as http;
 
 class AiValidationService {
   static GenerativeModel? _getModel() {
-    final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
-    if (apiKey.isEmpty) return null;
-    return GenerativeModel(model: 'gemini-3.6-flash', apiKey: apiKey);
+    final b64Key = dotenv.env['GEMINI_API_KEY_B64'] ?? '';
+    if (b64Key.isEmpty) return null;
+    try {
+      final apiKey = utf8.decode(base64.decode(b64Key));
+      return GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKey);
+    } catch (e) {
+      return null;
+    }
   }
 
   /// Valida la imagen localmente antes de subir el reporte.

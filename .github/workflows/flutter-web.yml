@@ -27,10 +27,15 @@ jobs:
         run: flutter pub get
 
       - name: Create env.txt
+        env:
+          MY_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          MY_SUPABASE_ANON: ${{ secrets.SUPABASE_ANON_KEY }}
+          MY_GEMINI_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> env.txt
-          echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> env.txt
-          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> env.txt
+          echo "SUPABASE_URL=$MY_SUPABASE_URL" >> env.txt
+          echo "SUPABASE_ANON_KEY=$MY_SUPABASE_ANON" >> env.txt
+          B64_KEY=$(echo -n "$MY_GEMINI_KEY" | base64 -w 0)
+          echo "GEMINI_API_KEY_B64=$B64_KEY" >> env.txt
 
       - name: Build Web Application
         run: flutter build web --release --base-href="/Radar-Kochala/"
