@@ -195,6 +195,16 @@ class _RegisterViewState extends State<RegisterView> {
               ),
               const SizedBox(height: 24),
 
+              // --- Sección: Nombre completo ---
+              _SectionTitle(icon: Icons.person_outline, label: 'Nombres y Apellidos'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _nameCtrl,
+                keyboardType: TextInputType.name,
+                decoration: _inputDeco('Ingresa tu nombre completo', Icons.person),
+              ),
+              const SizedBox(height: 24),
+
               // --- Sección: Contacto ---
               _SectionTitle(icon: Icons.phone_outlined, label: 'Teléfono (WhatsApp / Contacto)'),
               const SizedBox(height: 12),
