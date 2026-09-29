@@ -4,8 +4,6 @@ import 'package:flutter/foundation.dart'; // kIsWeb + debugPrint
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/report.dart';
-import '../providers/local_db_provider.dart';
-
 
 // REPOSITORIO: Maneja el acceso a los datos en Supabase.
 class ReportRepository {
@@ -18,50 +16,39 @@ class ReportRepository {
 
   Future<void> saveDraftToQueue(ReportDraft draft) async {
     final jsonStr = jsonEncode(draft.toJson());
-    if (kIsWeb) {
-      final prefs = await SharedPreferences.getInstance();
-      final queue = prefs.getStringList(_offlineQueueKey) ?? [];
-      queue.add(jsonStr);
-      await prefs.setStringList(_offlineQueueKey, queue);
-    } else {
-      await LocalDbProvider().enqueue(jsonStr);
-    }
+    final prefs = await SharedPreferences.getInstance();
+    final queue = prefs.getStringList(_offlineQueueKey) ?? [];
+    queue.add(jsonStr);
+    await prefs.setStringList(_offlineQueueKey, queue);
   }
 
-  Future<void> syncQueue() async {
-    if (kIsWeb) {
-      final prefs = await SharedPreferences.getInstance();
-      final queue = prefs.getStringList(_offlineQueueKey) ?? [];
-      if (queue.isEmpty) return;
+  Future<List<ReportDraft>> getPendingDrafts() async {
+    final prefs = await SharedPreferences.getInstance();
+    final queue = prefs.getStringList(_offlineQueueKey) ?? [];
+    return queue.map((item) => ReportDraft.fromJson(jsonDecode(item))).toList();
+  }
 
-      List<String> remaining = [];
-      for (final item in queue) {
-        try {
-          final draftMap = jsonDecode(item);
-          final draft = ReportDraft.fromJson(draftMap);
-          await createReport(draft); 
-        } catch (e) {
-          debugPrint('Error syncing offline report: $e');
-          remaining.add(item); 
-        }
-      }
-      
-      await prefs.setStringList(_offlineQueueKey, remaining);
-    } else {
-      final queue = await LocalDbProvider().getQueue();
-      for (final row in queue) {
-        try {
-          final item = row['json_data'] as String;
-          final id = row['id'] as int;
-          final draftMap = jsonDecode(item);
-          final draft = ReportDraft.fromJson(draftMap);
-          await createReport(draft);
-          await LocalDbProvider().deleteFromQueue(id);
-        } catch (e) {
-          debugPrint('Error syncing sqlite offline report: $e');
-        }
+  Future<int> syncQueue() async {
+    final prefs = await SharedPreferences.getInstance();
+    final queue = prefs.getStringList(_offlineQueueKey) ?? [];
+    if (queue.isEmpty) return 0;
+
+    int count = 0;
+    List<String> remaining = [];
+    for (final item in queue) {
+      try {
+        final draftMap = jsonDecode(item);
+        final draft = ReportDraft.fromJson(draftMap);
+        await createReport(draft); 
+        count++;
+      } catch (e) {
+        debugPrint('Error syncing offline report: $e');
+        remaining.add(item); 
       }
     }
+    
+    await prefs.setStringList(_offlineQueueKey, remaining);
+    return count;
   }
 
   Future<List<Report>> fetchReports({int limit = 50, int offset = 0}) async {
@@ -92,7 +79,7 @@ class ReportRepository {
             '${DateTime.now().millisecondsSinceEpoch}_$_currentUserId.jpg';
         await _client.storage
             .from('report_images')
-            .uploadBinary(fileName, Uint8List.fromList(draft.imageBytes!));
+            .uploadBinary(fileName, Uint8List.fromList(draft.imageBytes!), fileOptions: const FileOptions(contentType: 'image/jpeg'));
         finalImageUrl =
             _client.storage.from('report_images').getPublicUrl(fileName);
       } catch (e) {
@@ -129,7 +116,7 @@ class ReportRepository {
     }
 
     final response = await _client.from('reports').insert({
-      // Título limpio — sin la redundante palabra "reportado".
+      // Título limpio - sin la redundante palabra "reportado".
       'title': categoryName(draft.category),
       'description': draft.description,
       'category': draft.category.name,
@@ -177,6 +164,15 @@ class ReportRepository {
       } catch (e) {
         debugPrint('Error incrementing points: $e');
       }
+    }
+  }
+
+  Future<void> voteForReport(String reportId) async {
+    try {
+      await _client.rpc('increment_upvotes', params: {'report_id': reportId});
+    } catch (e) {
+      debugPrint('Error voting for report: $e');
+      rethrow;
     }
   }
 }

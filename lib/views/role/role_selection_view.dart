@@ -16,25 +16,16 @@ class RoleSelectionView extends StatefulWidget {
 
 class _RoleSelectionViewState extends State<RoleSelectionView> {
   final _emailCtrl = TextEditingController();
-  // CORRECCIÓN #1: Quitamos la contraseña hardcodeada 'admin123'.
   final _passwordCtrl = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  Session? _activeSession;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Bloque protegido para verificar sesión activa
-      try {
-        final session = Supabase.instance.client.auth.currentSession;
-        if (session != null && session.user.id.isNotEmpty) {
-          _routeUserById(session.user.id);
-        }
-      } catch (e) {
-        debugPrint('Error al verificar sesión inicial: $e');
-      }
-    });
+    // Verificamos si hay una sesión guardada de forma sincrónica.
+    _activeSession = Supabase.instance.client.auth.currentSession;
   }
 
   @override
@@ -44,9 +35,8 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
     super.dispose();
   }
 
-  // CORRECCIÓN #2: Routing basado en el campo 'role' de la tabla profiles,
-  // no en el prefijo del email — evita depender de convenciones frágiles.
   Future<void> _routeUserById(String userId) async {
+    setState(() => _isLoading = true);
     try {
       final profile = await Supabase.instance.client
           .from('profiles')
@@ -73,6 +63,8 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
     } catch (e) {
       debugPrint('Error al obtener perfil: $e');
       if (mounted) _open(const HomeView());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -112,41 +104,6 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
     }
   }
 
-  Future<void> _signUp() async {
-    final email = _emailCtrl.text.trim().toLowerCase();
-    final password = _passwordCtrl.text.trim();
-
-    if (email.isEmpty || !email.contains('@')) {
-      _showError('Ingresa un correo electrónico válido.');
-      return;
-    }
-    if (password.length < 6) {
-      _showError('La contraseña debe tener al menos 6 caracteres.');
-      return;
-    }
-
-    FocusScope.of(context).unfocus();
-    setState(() => _isLoading = true);
-
-    try {
-      final res = await Supabase.instance.client.auth
-          .signUp(email: email, password: password);
-      if (res.user != null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('¡Cuenta creada! Bienvenido.')),
-          );
-        }
-        await _routeUserById(res.user!.id);
-      }
-    } on AuthException catch (e) {
-      _showError(_authErrorMessage(e.message));
-    } catch (e) {
-      _showError('Error al registrarse. Revisa tu conexión.');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
 
   // Traduce mensajes de error de Supabase (en inglés) al español.
   String _authErrorMessage(String msg) {
@@ -175,7 +132,73 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    // Si hay una sesión activa, mostramos una pantalla de bienvenida para continuar
+    if (_activeSession != null) {
+      final email = _activeSession!.user.email ?? 'Usuario';
+      return Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(30.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: AppTheme.teal.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.account_circle, color: AppTheme.teal, size: 50),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text('¡Hola de nuevo!', style: TextStyle(fontSize: 22, color: Colors.grey, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Text(email, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppTheme.ink), textAlign: TextAlign.center),
+                  const SizedBox(height: 40),
+                  if (_isLoading)
+                    const CircularProgressIndicator(color: AppTheme.teal)
+                  else ...[
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: FilledButton.icon(
+                        onPressed: () => _routeUserById(_activeSession!.user.id),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppTheme.teal,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        icon: const Icon(Icons.login),
+                        label: const Text('Continuar sesión', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: () async {
+                        setState(() => _isLoading = true);
+                        await Supabase.instance.client.auth.signOut();
+                        if (mounted) {
+                          setState(() {
+                            _activeSession = null;
+                            _isLoading = false;
+                          });
+                        }
+                      },
+                      child: const Text('Ingresar con otra cuenta', style: TextStyle(color: Colors.grey)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Flujo normal de login
+    return Scaffold(
         body: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -193,7 +216,7 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
                         color: Colors.white, size: 36),
                   ),
                   const SizedBox(height: 16),
-                  const Text('Reporta Cocha',
+                  const Text('Radar Kochala',
                       style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w900,
@@ -209,7 +232,6 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
                     autocorrect: false,
                     decoration: InputDecoration(
                       labelText: 'Correo electrónico',
-                      // CORRECCIÓN #5: hint genérico, no expone emails internos.
                       hintText: 'tu@correo.com',
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14)),
@@ -291,4 +313,5 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
           ),
         ),
       );
+  }
 }

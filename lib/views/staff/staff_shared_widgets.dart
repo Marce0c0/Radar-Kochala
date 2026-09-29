@@ -2,28 +2,28 @@ import 'package:flutter/material.dart';
 import '../../data/models/report.dart';
 import '../../core/theme/app_theme.dart';
 class StaffPageIntro extends StatelessWidget {
-  const StaffPageIntro({required this.title, required this.subtitle});
+  const StaffPageIntro({super.key, required this.title, required this.subtitle});
   final String title, subtitle;
   @override
   Widget build(BuildContext context) => Padding(padding: const EdgeInsets.only(bottom: 18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppTheme.ink)), const SizedBox(height: 4), Text(subtitle, style: const TextStyle(color: Color(0xff78908d)))]));
 }
 
 class StaffHeading extends StatelessWidget {
-  const StaffHeading(this.text);
+  const StaffHeading(this.text, {super.key});
   final String text;
   @override
   Widget build(BuildContext context) => Padding(padding: const EdgeInsets.only(top: 18, bottom: 9), child: Text(text, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppTheme.ink)));
 }
 
 class StaffStatsRow extends StatelessWidget {
-  const StaffStatsRow({required this.items});
+  const StaffStatsRow({super.key, required this.items});
   final List<(String, String)> items;
   @override
   Widget build(BuildContext context) => Row(children: items.map((item) => Expanded(child: Container(margin: const EdgeInsets.only(right: 8), padding: const EdgeInsets.symmetric(vertical: 14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: const Color(0xffe1e9e6))), child: Column(children: [Text(item.$1, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppTheme.teal)), Text(item.$2, style: const TextStyle(fontSize: 10, color: Color(0xff78908d)))])))).toList());
 }
 
 class StaffReportTile extends StatelessWidget {
-  const StaffReportTile({required this.report, required this.action, required this.onTap});
+  const StaffReportTile({super.key, required this.report, required this.action, required this.onTap});
   final Report report;
   final String action;
   final VoidCallback onTap;
@@ -32,7 +32,7 @@ class StaffReportTile extends StatelessWidget {
 }
 
 class StaffSegmented extends StatelessWidget {
-  const StaffSegmented({required this.options, required this.selected, required this.onChanged});
+  const StaffSegmented({super.key, required this.options, required this.selected, required this.onChanged});
   final List<String> options;
   final String selected;
   final ValueChanged<String> onChanged;
@@ -41,7 +41,7 @@ class StaffSegmented extends StatelessWidget {
 }
 
 class StaffWorkerTile extends StatelessWidget {
-  const StaffWorkerTile({required this.name, required this.selected, required this.onTap});
+  const StaffWorkerTile({super.key, required this.name, required this.selected, required this.onTap});
   final String name;
   final bool selected;
   final VoidCallback onTap;

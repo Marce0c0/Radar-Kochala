@@ -1,11 +1,6 @@
 import 'staff_shared_widgets.dart';
 import 'staff_map_view.dart';
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../controllers/report_controller.dart';
@@ -14,7 +9,6 @@ import '../../data/models/report.dart';
 import '../reports/detail_view.dart';
 import '../role/role_selection_view.dart';
 import '../widgets/report_card.dart';
-import '../widgets/status_pill.dart';
 import '../../services/ai_validation_service.dart';
 
 // sesión (signOut + navegación), evitando duplicar este bloque en cada vista.
@@ -110,16 +104,32 @@ class _StaffHubViewState extends State<StaffHubView> {
   void _openReport(Report report) => Navigator.push(context, MaterialPageRoute(builder: (_) => ValidateReportView(report: report)));
 }
 
-class _OperatorBoard extends StatelessWidget {
+class _OperatorBoard extends StatefulWidget {
   const _OperatorBoard({required this.reports, required this.onOpen});
   final List<Report> reports;
   final ValueChanged<Report> onOpen;
-  
+
+  @override
+  State<_OperatorBoard> createState() => _OperatorBoardState();
+}
+
+class _OperatorBoardState extends State<_OperatorBoard> {
+  ReportCategory? _filterCategory;
+  bool _onlyHighSeverity = false;
+
   @override
   Widget build(BuildContext context) {
-    final reported = reports.where((r) => r.status == ReportStatus.reported).toList();
-    final inProgress = reports.where((r) => r.status == ReportStatus.inProgress || r.status == ReportStatus.reviewing).toList();
-    final resolved = reports.where((r) => r.status == ReportStatus.resolved).length;
+    var filtered = widget.reports;
+    if (_filterCategory != null) {
+      filtered = filtered.where((r) => r.category == _filterCategory).toList();
+    }
+    if (_onlyHighSeverity) {
+      filtered = filtered.where((r) => r.severity == 'Alta').toList();
+    }
+
+    final reported = filtered.where((r) => r.status == ReportStatus.reported).toList();
+    final inProgress = filtered.where((r) => r.status == ReportStatus.inProgress || r.status == ReportStatus.reviewing).toList();
+    final resolved = filtered.where((r) => r.status == ReportStatus.resolved).length;
 
     return NotificationListener<ScrollEndNotification>(
       onNotification: (scrollInfo) {
@@ -134,13 +144,47 @@ class _OperatorBoard extends StatelessWidget {
         const StaffPageIntro(title: 'Panel operador', subtitle: 'Distrito Centro · Turno mañana'),
         StaffStatsRow(items: [('${reported.length}', 'Nuevos'), ('${inProgress.length}', 'En proceso'), ('$resolved', 'Resueltos')]),
         
+        const SizedBox(height: 24),
+        const Text('Filtros Avanzados', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              FilterChip(
+                label: const Text('Solo Alta Severidad'),
+                selected: _onlyHighSeverity,
+                onSelected: (val) => setState(() => _onlyHighSeverity = val),
+              ),
+              const SizedBox(width: 8),
+              FilterChip(
+                label: const Text('Baches'),
+                selected: _filterCategory == ReportCategory.pothole,
+                onSelected: (val) => setState(() => _filterCategory = val ? ReportCategory.pothole : null),
+              ),
+              const SizedBox(width: 8),
+              FilterChip(
+                label: const Text('Basura'),
+                selected: _filterCategory == ReportCategory.waste,
+                onSelected: (val) => setState(() => _filterCategory = val ? ReportCategory.waste : null),
+              ),
+              const SizedBox(width: 8),
+              FilterChip(
+                label: const Text('Luminaria'),
+                selected: _filterCategory == ReportCategory.lighting,
+                onSelected: (val) => setState(() => _filterCategory = val ? ReportCategory.lighting : null),
+              ),
+            ],
+          ),
+        ),
+        
         const StaffHeading('Requieren validación (Nuevos)'),
         if (reported.isEmpty) const Text('No hay reportes nuevos', style: TextStyle(color: Colors.grey)),
-        ...reported.map((r) => StaffReportTile(report: r, action: 'Validar', onTap: () => onOpen(r))),
+        ...reported.map((r) => StaffReportTile(report: r, action: 'Validar', onTap: () => widget.onOpen(r))),
         
         const StaffHeading('En proceso'),
         if (inProgress.isEmpty) const Text('No hay tareas en ejecución', style: TextStyle(color: Colors.grey)),
-        ...inProgress.map((r) => StaffReportTile(report: r, action: 'Ver estado', onTap: () => onOpen(r))),
+        ...inProgress.map((r) => StaffReportTile(report: r, action: 'Ver estado', onTap: () => widget.onOpen(r))),
           if (context.watch<ReportController>().loadingMore)
             const Padding(
               padding: EdgeInsets.all(16.0),
@@ -166,6 +210,9 @@ class _ValidateReportViewState extends State<ValidateReportView> {
   String? _selectedWorkerId;
   bool _loadingWorkers = true;
   bool _validatingWithAi = false;
+  
+  List<Map<String, dynamic>> _history = [];
+  bool _loadingHistory = true;
 
   static const _statusLabels = {
     ReportStatus.reported:   'Reportado',
@@ -179,6 +226,26 @@ class _ValidateReportViewState extends State<ValidateReportView> {
     super.initState();
     _selectedStatus = widget.report.status;
     _loadWorkers();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final result = await Supabase.instance.client
+          .from('assignments')
+          .select('assigned_at, completed_at, worker_notes, operator_notes, profiles!worker_id(email)')
+          .eq('report_id', widget.report.id)
+          .order('assigned_at', ascending: false);
+      if (mounted) {
+        setState(() {
+          _history = List<Map<String, dynamic>>.from(result);
+          _loadingHistory = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading history: $e');
+      if (mounted) setState(() => _loadingHistory = false);
+    }
   }
 
   Future<void> _loadWorkers() async {
@@ -259,12 +326,8 @@ class _ValidateReportViewState extends State<ValidateReportView> {
           else
             ..._workers.map((w) {
               final id = w['id'].toString();
-              // Usa el email si está disponible (después de la migración),
-              // sino muestra los primeros 8 caracteres del UUID.
               final rawEmail = w['email']?.toString() ?? '';
-              final label = rawEmail.isNotEmpty
-                  ? rawEmail.split('@').first
-                  : 'Trabajador (${id.substring(0, 8)}...)';
+              final label = rawEmail.isNotEmpty ? rawEmail.split('@').first : 'Trabajador (${id.substring(0, 8)}...)';
               return StaffWorkerTile(
                 name: label,
                 selected: _selectedWorkerId == id,
@@ -278,25 +341,88 @@ class _ValidateReportViewState extends State<ValidateReportView> {
             onPressed: _save,
             child: const Text('Guardar y asignar'),
           ),
+
+          if (_history.isNotEmpty) ...[
+            const SizedBox(height: 32),
+            const StaffHeading('Historial de Asignaciones (Técnicos)'),
+            ..._history.map((h) {
+              final email = h['profiles'] != null ? h['profiles']['email'] : 'Desconocido';
+              final completed = h['completed_at'] != null;
+              final dateStr = h['assigned_at'] != null 
+                ? DateTime.tryParse(h['assigned_at'].toString())?.toLocal().toString().split('.')[0] 
+                : '';
+              
+              return Card(
+                elevation: 0,
+                color: const Color(0xfff5f7f6),
+                margin: const EdgeInsets.only(bottom: 12),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(completed ? Icons.check_circle : Icons.pending, 
+                               color: completed ? AppTheme.teal : Colors.orange, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(email, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text('Asignado: $dateStr', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      if (h['operator_notes'] != null && h['operator_notes'].toString().isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text('Instrucción: ${h['operator_notes']}', style: const TextStyle(fontSize: 13)),
+                        ),
+                      if (completed && h['worker_notes'] != null)
+                        Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+                          child: Text('Reporte Técnico: ${h['worker_notes']}', style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic)),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+          const SizedBox(height: 20),
         ]),
       );
 
   Future<void> _save() async {
+    if (_selectedWorkerId != null && 
+        (_selectedStatus == ReportStatus.reported || _selectedStatus == ReportStatus.reviewing)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xffd9684b),
+          content: Text('Cambia el estado a "En proceso" para asignar la tarea al trabajador.'),
+        ),
+      );
+      return;
+    }
+
     // Actualiza el estado del reporte.
     await context.read<ReportController>().updateStatus(widget.report.id, _selectedStatus);
-    // Si hay un trabajador seleccionado, crea o actualiza la asignación en la BD.
+    // Si hay un trabajador seleccionado, crea la asignación en la BD.
     if (_selectedWorkerId != null) {
       try {
         final client = Supabase.instance.client;
-        await client.from('assignments').upsert({
+        await client.from('assignments').insert({
           'report_id': widget.report.id,
           'worker_id': _selectedWorkerId,
           'operator_id': client.auth.currentUser?.id,
-          'worker_notes': _note.text.trim(),
+          'operator_notes': _note.text.trim(),
           'assigned_at': DateTime.now().toIso8601String(),
         });
       } catch (e) {
         debugPrint('Error al guardar asignación: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error interno asignando: $e')));
+        }
       }
     }
     if (mounted) {
@@ -378,6 +504,7 @@ class _TeamViewState extends State<_TeamView> {
     );
   }
 }
+
 
 
 

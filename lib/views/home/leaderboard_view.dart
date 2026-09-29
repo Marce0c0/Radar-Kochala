@@ -80,19 +80,20 @@ class _LeaderboardViewState extends State<LeaderboardView> {
   Widget _buildLeaderboardTile(int index, String name, int points) {
     final isTop3 = index < 3;
     final Color rankColor;
-    if (index == 0) rankColor = Colors.amber;
-    else if (index == 1) rankColor = Colors.grey.shade400;
+    if (index == 0) {
+      rankColor = Colors.amber;
+    } else if (index == 1) rankColor = Colors.grey.shade400;
     else if (index == 2) rankColor = Colors.orange.shade300;
     else rankColor = Colors.blueGrey.shade100;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isTop3 ? rankColor.withOpacity(0.1) : Colors.white,
+        color: isTop3 ? rankColor.withValues(alpha: 0.1) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: isTop3 ? rankColor : Colors.grey.shade200, width: isTop3 ? 2 : 1),
         boxShadow: isTop3 ? [
-          BoxShadow(color: rankColor.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))
+          BoxShadow(color: rankColor.withValues(alpha: 0.2), blurRadius: 8, offset: const Offset(0, 4))
         ] : null,
       ),
       child: ListTile(

@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../controllers/report_controller.dart';
@@ -22,26 +23,90 @@ class MapExploreView extends StatefulWidget {
 class _MapExploreViewState extends State<MapExploreView> {
   final MapController _mapController = MapController();
   static const _cochabamba = LatLng(-17.3895, -66.1568);
+  LatLng? _currentPosition;
+  StreamSubscription<Position>? _positionStreamSubscription;
 
   @override
   void initState() {
     super.initState();
-    _centrarEnUbicacionUsuario();
+    _iniciarRastreoGPS();
   }
 
-  Future<void> _centrarEnUbicacionUsuario() async {
+  @override
+  void dispose() {
+    _positionStreamSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _iniciarRastreoGPS() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return;
+    if (!serviceEnabled) {
+      if (mounted) _mostrarErrorGPS('GPS Desactivado', 'Por favor, activa el GPS/Ubicacion en tu telefono.');
+      return;
+    }
 
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) return;
+      if (permission == LocationPermission.denied) {
+        if (mounted) _mostrarErrorGPS('Permiso Denegado', 'Necesitamos permiso de ubicacion para encontrar los baches cerca de ti.');
+        return;
+      }
     }
-    if (permission == LocationPermission.deniedForever) return;
+    if (permission == LocationPermission.deniedForever) {
+      if (mounted) _mostrarErrorGPS('Permisos Bloqueados', 'Ve a la configuracion de Android y activa los permisos de ubicacion para esta app.');
+      return;
+    }
 
-    final position = await Geolocator.getCurrentPosition();
-    _safeMove(LatLng(position.latitude, position.longitude), 15.5);
+    try {
+      final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      if (mounted) {
+        setState(() {
+          _currentPosition = LatLng(position.latitude, position.longitude);
+        });
+        _safeMove(_currentPosition!, 15.5);
+      }
+    } catch (_) {}
+
+    _positionStreamSubscription ??= Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
+      ),
+    ).listen((Position position) {
+      if (mounted) {
+        setState(() {
+          _currentPosition = LatLng(position.latitude, position.longitude);
+        });
+      }
+    });
+  }
+
+  Future<void> _centrarEnUbicacionUsuario() async {
+    if (_currentPosition != null) {
+      _safeMove(_currentPosition!, 16.0);
+    } else {
+      await _iniciarRastreoGPS();
+      if (_currentPosition != null) {
+        _safeMove(_currentPosition!, 16.0);
+      }
+    }
+  }
+
+  void _mostrarErrorGPS(String title, String content) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(content),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _addReport(BuildContext context, LatLng location) async {
@@ -65,17 +130,63 @@ class _MapExploreViewState extends State<MapExploreView> {
               MapNewReportView(initialLocation: location)),
     );
     if (draft != null) {
-      if (!context.mounted) return;
-      await context.read<ReportController>().create(draft);
-      // Recargamos para que el nuevo pin aparezca en el mapa inmediatamente.
-      if (context.mounted) await context.read<ReportController>().load();
-    }
-  }
+        if (!context.mounted) return;
+        
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const AlertDialog(
+            content: Row(children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 20),
+              Text('Publicando reporte...'),
+            ]),
+          ),
+        );
 
-  void _safeMove(LatLng center, double zoom) {
+        final result = await context.read<ReportController>().create(draft);
+        
+        if (!context.mounted) return;
+        Navigator.pop(context); // Oculta indicador
+        
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: Text(result != null ? '¡Reporte Publicado!' : 'Atención', style: const TextStyle(fontWeight: FontWeight.bold)),
+            content: Text(result != null 
+                ? 'Tu reporte fue validado por la IA y ha sido publicado exitosamente para que las autoridades lo atiendan.' 
+                : 'Ocurrió un problema de red o de permisos al publicar en la nube. El reporte ha sido guardado localmente (Offline) y se publicará en cuanto se pueda.'),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Entendido'),
+              ),
+            ],
+          ),
+        );
+
+        if (context.mounted) await context.read<ReportController>().load();
+      }
+    }
+  
+    void _safeMove(LatLng center, double zoom) {
     try {
       _mapController.move(center, zoom);
     } catch (_) {}
+  }
+
+  Color _getStatusRingColor(ReportStatus status) {
+    switch (status) {
+      case ReportStatus.reported:
+        return const Color(0xffd9684b); // Red for pending
+      case ReportStatus.reviewing:
+        return Colors.orange; // Orange for reviewing
+      case ReportStatus.inProgress:
+        return Colors.blue; // Blue for assigned
+      case ReportStatus.resolved:
+        return const Color(0xff52b788); // Green for resolved
+    }
   }
 
   @override
@@ -132,7 +243,7 @@ class _MapExploreViewState extends State<MapExploreView> {
                       urlTemplate:
                           'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName:
-                          'com.example.cochabamba_reporta',
+                          'com.radar.kochala',
                     ),
                     MarkerClusterLayerWidget(
                       options: MarkerClusterLayerOptions(
@@ -144,8 +255,8 @@ class _MapExploreViewState extends State<MapExploreView> {
                             .map((report) => Marker(
                                   point: LatLng(
                                       report.latitude!, report.longitude!),
-                                  width: 48,
-                                  height: 48,
+                                  width: 54,
+                                  height: 54,
                                   child: GestureDetector(
                                     onTap: () => Navigator.push(
                                       context,
@@ -155,15 +266,27 @@ class _MapExploreViewState extends State<MapExploreView> {
                                     ),
                                     child: DecoratedBox(
                                       decoration: BoxDecoration(
-                                        color: categoryColor(report.category),
+                                        color: Colors.white,
                                         shape: BoxShape.circle,
                                         border: Border.all(
-                                            color: Colors.white, width: 3),
+                                            color: _getStatusRingColor(report.status), width: 3.5),
+                                        boxShadow: const [
+                                          BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
+                                        ],
                                       ),
-                                      child: Icon(
-                                        categoryIcon(report.category),
-                                        color: Colors.white,
-                                        size: 23,
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(2.0),
+                                        child: DecoratedBox(
+                                          decoration: BoxDecoration(
+                                            color: categoryColor(report.category),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            categoryIcon(report.category),
+                                            color: Colors.white,
+                                            size: 22,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -185,49 +308,76 @@ class _MapExploreViewState extends State<MapExploreView> {
                         },
                       ),
                     ),
+                    if (_currentPosition != null)
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: _currentPosition!,
+                            width: 60,
+                            height: 60,
+                            child: const Icon(
+                              Icons.person_pin_circle,
+                              color: Colors.blue,
+                              size: 50,
+                            ),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
                 Positioned(
-                  top: 10,
-                  left: 0,
-                  right: 0,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Row(
-                      children: [
-                        FilterChip(
-                          label: const Text('Ocultar resueltos'),
-                          selected: controller.hideResolved,
-                          onSelected: (v) => controller.setHideResolved(v),
-                          backgroundColor: Colors.white,
-                          selectedColor: AppTheme.teal.withOpacity(0.2),
-                          checkmarkColor: AppTheme.teal,
-                          elevation: 2,
-                        ),
-                        const SizedBox(width: 8),
-                        ChoiceChip(
-                          label: const Text('Todos'),
-                          selected: controller.filter == null,
-                          onSelected: (_) => controller.setFilter(null),
-                          backgroundColor: Colors.white,
-                          selectedColor: AppTheme.teal.withOpacity(0.2),
-                          elevation: 2,
-                        ),
-                        const SizedBox(width: 8),
-                        ...ReportCategory.values.map((c) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ChoiceChip(
-                            label: Text(categoryName(c)),
-                            selected: controller.filter == c,
-                            onSelected: (_) => controller.setFilter(c),
-                            backgroundColor: Colors.white,
-                            selectedColor: AppTheme.teal.withOpacity(0.2),
-                            elevation: 2,
+                  top: 12,
+                  left: 12,
+                  right: 12,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      FilterChip(
+                        label: const Text('Ocultar resueltos'),
+                        selected: controller.hideResolved,
+                        onSelected: (v) => controller.setHideResolved(v),
+                        backgroundColor: Colors.white,
+                        selectedColor: AppTheme.teal.withOpacity(0.2),
+                        checkmarkColor: AppTheme.teal,
+                        elevation: 4,
+                      ),
+                      PopupMenuButton<ReportCategory?>(
+                        initialValue: controller.filter,
+                        onSelected: (value) => controller.setFilter(value),
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: null,
+                            child: Text('Todas las categorias'),
                           ),
-                        )),
-                      ],
-                    ),
+                          const PopupMenuDivider(),
+                          ...ReportCategory.values.map(
+                            (c) => PopupMenuItem(
+                              value: c,
+                              child: Text(categoryName(c)),
+                            ),
+                          ),
+                        ],
+                        child: Material(
+                          elevation: 4,
+                          borderRadius: BorderRadius.circular(30),
+                          color: Colors.white,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.filter_list, color: AppTheme.teal, size: 20),
+                                const SizedBox(width: 8),
+                                Text(
+                                  controller.filter == null ? 'Filtrar' : categoryName(controller.filter!),
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 Positioned(
@@ -235,6 +385,17 @@ class _MapExploreViewState extends State<MapExploreView> {
                   bottom: 12,
                   child: Column(
                     children: [
+                      FloatingActionButton.small(
+                        heroTag: 'map-compass',
+                        backgroundColor: Colors.white,
+                        onPressed: () {
+                          try {
+                            _mapController.rotate(0);
+                          } catch (_) {}
+                        },
+                        child: const Icon(Icons.explore, color: AppTheme.teal),
+                      ),
+                      const SizedBox(height: 8),
                       FloatingActionButton.small(
                         heroTag: 'map-loc',
                         backgroundColor: AppTheme.teal,
@@ -304,3 +465,6 @@ class _MapExploreViewState extends State<MapExploreView> {
     );
   }
 }
+
+
+

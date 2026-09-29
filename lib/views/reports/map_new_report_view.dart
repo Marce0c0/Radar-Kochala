@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/ai_validation_service.dart';
 import '../../data/models/report.dart';
@@ -148,7 +149,7 @@ class _MapNewReportViewState extends State<MapNewReportView> {
                         urlTemplate:
                             'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                         userAgentPackageName:
-                            'com.example.cochabamba_reporta',
+                            'com.radar.kochala',
                       ),
                     ],
                   ),
@@ -249,6 +250,7 @@ class _MapNewReportViewState extends State<MapNewReportView> {
                   TextField(
                     controller: _description,
                     maxLines: 4,
+                    maxLength: 500,
                     decoration: InputDecoration(
                       labelText: 'Descripción',
                       hintText: 'Describe el bache o problema...',
@@ -287,7 +289,39 @@ class _MapNewReportViewState extends State<MapNewReportView> {
       return;
     }
 
+    final lat = _selectedLocation.latitude;
+    final lng = _selectedLocation.longitude;
+    if (lat > -17.25 || lat < -17.50 || lng > -65.90 || lng < -66.30) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            backgroundColor: Color(0xffd9684b),
+            content: Text('Ubicación inválida: El reporte debe estar dentro del municipio de Cochabamba.')),
+      );
+      return;
+    }
+
     if (!mounted) return;
+
+    // --- VERIFICAR CONEXIÓN RÁPIDAMENTE ---
+    final connectivityResult = await Connectivity().checkConnectivity();
+    final isOffline = (connectivityResult as List).contains(ConnectivityResult.none);
+
+    if (isOffline) {
+      if (mounted) {
+        final draft = ReportDraft(
+          category: _category,
+          description: _description.text.trim(),
+          severity: _severity,
+          latitude: _selectedLocation.latitude,
+          longitude: _selectedLocation.longitude,
+          imageUrl: kIsWeb ? null : _imagePath,
+          imageBytes: kIsWeb ? _imageBytes?.toList() : null,
+          isAiVerified: false,
+        );
+        Navigator.pop(context, draft);
+      }
+      return; // Salimos temprano para evitar que se cuelgue buscando la red
+    }
 
     // --- CHECK ANTI-DUPLICADOS ---
     try {
@@ -299,8 +333,6 @@ class _MapNewReportViewState extends State<MapNewReportView> {
       });
 
       if (nearby != null && (nearby as List).isNotEmpty && mounted) {
-        final dup = nearby.first as Map<String, dynamic>;
-        final distMeters = (dup['distance_meters'] as num).round();
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
@@ -309,26 +341,65 @@ class _MapNewReportViewState extends State<MapNewReportView> {
               SizedBox(width: 8),
               Text('Posible duplicado'),
             ]),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Ya existe un reporte similar a $distMeters metros de este punto:'),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(10)),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(dup['title']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      Text('Estado: ${dup['status']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                    ],
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Ya existen ${nearby.length} reporte(s) similar(es) cerca de este punto:'),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 160,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: nearby.length,
+                      itemBuilder: (context, index) {
+                        final dup = nearby[index] as Map<String, dynamic>;
+                        final distMeters = (dup['distance_meters'] as num).round();
+                        final imageUrl = dup['image_url'] as String?;
+                        final desc = dup['description']?.toString() ?? 'Sin descripción';
+                        final status = dup['status']?.toString() ?? '';
+                        return Container(
+                          width: 140,
+                          margin: const EdgeInsets.only(right: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.orange.shade200),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ClipRRect(
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+                                child: imageUrl != null
+                                    ? Image.network(imageUrl, height: 70, width: 140, fit: BoxFit.cover)
+                                    : Container(height: 70, width: 140, color: Colors.grey.shade300, child: const Icon(Icons.image_not_supported)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('A $distMeters metros', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.orange)),
+                                    const SizedBox(height: 2),
+                                    Text(desc, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10)),
+                                    const SizedBox(height: 4),
+                                    Text('Estado: $status', style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                const Text('¿Tu reporte es diferente a este? Confirma para continuar.'),
-              ],
+                  const SizedBox(height: 12),
+                  const Text('¿Tu reporte es diferente a este? Confirma para continuar.'),
+                ],
+              ),
             ),
             actions: [
               TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
@@ -340,7 +411,6 @@ class _MapNewReportViewState extends State<MapNewReportView> {
       }
     } catch (e) {
       debugPrint('Error al verificar duplicados: $e');
-      // No bloqueamos si falla — seguimos con el flujo normal
     }
     // --- FIN CHECK ANTI-DUPLICADOS ---
 
@@ -371,12 +441,18 @@ class _MapNewReportViewState extends State<MapNewReportView> {
 
       if (veredicto.contains('INVALIDO')) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              backgroundColor: Color(0xffd9684b),
-              content: Text(
-                  '❌ Anti-Fraude: La imagen no corresponde al tipo de reporte.'),
-              duration: Duration(seconds: 4),
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              title: const Text('❌ Sistema Anti-Fraude'),
+              content: const Text('La imagen proporcionada no parece corresponder a un reporte real de esta categoría. Por favor intenta con otra foto.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Entendido'),
+                ),
+              ],
             ),
           );
         }
@@ -400,14 +476,23 @@ class _MapNewReportViewState extends State<MapNewReportView> {
     } catch (e) {
       if (mounted) {
         Navigator.pop(context); // Cerrar diálogo
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Sin conexión a la IA. Guardando reporte sin validación.'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 3),
+        
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('⚠️ Sin conexión a la IA'),
+            content: const Text('No se pudo verificar la imagen automáticamente en este momento. Guardando reporte sin validación por IA.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Entendido'),
+              ),
+            ],
           ),
         );
-        
+
+        if (!mounted) return;
         final draft = ReportDraft(
           category: _category,
           description: _description.text.trim(),
@@ -418,7 +503,7 @@ class _MapNewReportViewState extends State<MapNewReportView> {
           imageBytes: kIsWeb ? _imageBytes?.toList() : null,
           isAiVerified: false,
         );
-            
+
         Navigator.pop(context, draft);
       }
     }
