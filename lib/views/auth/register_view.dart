@@ -14,6 +14,7 @@ class RegisterView extends StatefulWidget {
 }
 
 class _RegisterViewState extends State<RegisterView> {
+  final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
@@ -28,6 +29,7 @@ class _RegisterViewState extends State<RegisterView> {
 
   @override
   void dispose() {
+    _nameCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     _phoneCtrl.dispose();
@@ -60,10 +62,15 @@ class _RegisterViewState extends State<RegisterView> {
     setState(() => _isVerifyingDoc = true);
     try {
       final docTypeName = _docType == 'ci' ? 'Cédula de Identidad boliviana' : 'Pasaporte';
+      if (_nameCtrl.text.trim().isEmpty) {
+        _showError('Ingresa tu nombre completo antes de verificar.');
+        return;
+      }
       final result = await AiValidationService.verifyIdentityDocument(
         Uint8List.fromList(_docImageBytes!),
         docTypeName,
         _documentCtrl.text.trim(),
+        _nameCtrl.text.trim(),
       );
       setState(() => _docVerificationStatus = result ? 'verified' : 'failed');
     } catch (e) {
@@ -96,8 +103,8 @@ class _RegisterViewState extends State<RegisterView> {
       _showError('El número de documento es obligatorio.');
       return;
     }
-    if (_docType == 'ci' && (docNumber.length < 6 || docNumber.length > 10)) {
-      _showError('La Cédula de Identidad debe tener entre 6 y 10 dígitos.');
+    if (_docType == 'ci' && (docNumber.length < 6 || docNumber.length > 12)) {
+      _showError('La Cédula de Identidad debe tener entre 6 y 12 dígitos.');
       return;
     }
 
@@ -111,6 +118,7 @@ class _RegisterViewState extends State<RegisterView> {
       if (res.user != null) {
         // Guardar datos de identidad en el perfil
         await Supabase.instance.client.from('profiles').update({
+          'full_name': _nameCtrl.text.trim(),
           'phone_number': phone,
           'document_type': _docType,
           'document_number': docNumber,
@@ -223,6 +231,7 @@ class _RegisterViewState extends State<RegisterView> {
               TextField(
                 controller: _documentCtrl,
                 keyboardType: TextInputType.number,
+                maxLength: 12,
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9A-Z-]'))],
                 decoration: _inputDeco(
                   _docType == 'ci' ? 'Número de Cédula (ej: 1234567)' : 'Número de Pasaporte',
