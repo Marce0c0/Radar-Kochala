@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:latlong2/latlong.dart';
 import '../../controllers/report_controller.dart';
 import '../../services/pdf_report_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/models/report.dart';
 import '../role/role_selection_view.dart';
 import '../reports/detail_view.dart';
 
@@ -34,7 +36,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     return Scaffold(
       backgroundColor: const Color(0xfff5f7f6),
       appBar: AppBar(
-        title: const Text('Panel de Administración', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const FittedBox(fit: BoxFit.scaleDown, child: Text('Panel de Administración', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
         backgroundColor: AppTheme.ink,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
@@ -116,6 +118,24 @@ class _MetricsTab extends StatefulWidget {
 class _MetricsTabState extends State<_MetricsTab> {
   int _totalUsers = 0;
   bool _loadingUsers = true;
+  String _selectedRange = 'Todos';
+  
+  final List<String> _ranges = ['1 Semana', '1 Mes', '6 Meses', '1 Año', '3 Años', 'Todos'];
+
+  List<Report> _filterReports(List<Report> all) {
+    if (_selectedRange == 'Todos') return all;
+    final now = DateTime.now();
+    DateTime cutoff;
+    switch (_selectedRange) {
+      case '1 Semana': cutoff = now.subtract(const Duration(days: 7)); break;
+      case '1 Mes': cutoff = now.subtract(const Duration(days: 30)); break;
+      case '6 Meses': cutoff = now.subtract(const Duration(days: 180)); break;
+      case '1 Año': cutoff = now.subtract(const Duration(days: 365)); break;
+      case '3 Años': cutoff = now.subtract(const Duration(days: 1095)); break;
+      default: return all;
+    }
+    return all.where((r) => r.createdAt != null && r.createdAt!.isAfter(cutoff)).toList();
+  }
 
   @override
   void initState() {
@@ -159,15 +179,42 @@ class _MetricsTabState extends State<_MetricsTab> {
           return const Center(child: CircularProgressIndicator());
         }
         
-        final total = controller.reports.length;
-        final resueltos = controller.reports.where((r) => r.status.name == 'resolved').length;
+        final filteredReports = _filterReports(controller.reports);
+        final total = filteredReports.length;
+        final resueltos = filteredReports.where((r) => r.status.name == 'resolved').length;
         final pendientes = total - resueltos;
         final resolutionRate = total == 0 ? '0%' : '${((resueltos / total) * 100).toStringAsFixed(0)}%';
         
         return ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            const Text('Resumen General', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppTheme.ink)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Resumen General', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppTheme.ink)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedRange,
+                      icon: const Padding(
+                        padding: EdgeInsets.only(left: 8.0),
+                        child: Icon(Icons.calendar_today, size: 18, color: AppTheme.teal),
+                      ),
+                      items: _ranges.map((r) => DropdownMenuItem(value: r, child: Text(r, style: const TextStyle(fontWeight: FontWeight.bold)))).toList(),
+                      onChanged: (v) {
+                        if (v != null) setState(() => _selectedRange = v);
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 24),
             Row(
               children: [
@@ -209,10 +256,186 @@ class _MetricsTabState extends State<_MetricsTab> {
                   onPressed: () => PdfReportService.generateAndPrintReport(controller.reports),
                 ),
               ],
-            )
+            ),
+            const SizedBox(height: 40),
+            _AdminCalendar(reports: filteredReports),
           ],
         );
       }
+    );
+  }
+}
+
+class _AdminCalendar extends StatelessWidget {
+  final List<Report> reports;
+  const _AdminCalendar({required this.reports});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final firstDayOfMonth = DateTime(now.year, now.month, 1);
+    final lastDayOfMonth = DateTime(now.year, now.month + 1, 0);
+    
+    final Map<int, int> counts = {};
+    for (var r in reports) {
+      if (r.createdAt != null && r.createdAt!.year == now.year && r.createdAt!.month == now.month) {
+        counts[r.createdAt!.day] = (counts[r.createdAt!.day] ?? 0) + 1;
+      }
+    }
+
+    final offset = firstDayOfMonth.weekday - 1;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Builder(builder: (ctx2) {
+          const mn = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+          final n2 = DateTime.now();
+          return Text('Calendario de Reportes - ' + mn[n2.month-1] + ' ' + n2.year.toString(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold));
+        }),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xffe1e9e6)),
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+                    .map((d) => Expanded(child: Center(child: Text(d, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)))))
+                    .toList(),
+              ),
+              const SizedBox(height: 8),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 7,
+                  childAspectRatio: 1.0,
+                ),
+                itemCount: lastDayOfMonth.day + offset,
+                itemBuilder: (context, index) {
+                  if (index < offset) return const SizedBox();
+                  final day = index - offset + 1;
+                  final count = counts[day] ?? 0;
+                  final isToday = day == now.day;
+                  
+                  return GestureDetector(
+                    onTap: () {
+                      if (count == 0) return;
+                      final dayReports = reports.where((r) => r.createdAt != null && r.createdAt!.year == now.year && r.createdAt!.month == now.month && r.createdAt!.day == day).toList();
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (ctx) => _buildDayReportsSheet(ctx, day, dayReports),
+                      );
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: count > 0 ? AppTheme.teal.withValues(alpha: (0.1 + count * 0.1).clamp(0.0, 0.8)) : Colors.transparent,
+                        border: isToday ? Border.all(color: AppTheme.teal, width: 2) : Border.all(color: Colors.grey.shade200),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Stack(
+                        children: [
+                          Center(child: Text('$day', style: TextStyle(fontWeight: isToday ? FontWeight.bold : FontWeight.normal))),
+                          if (count > 0)
+                            Positioned(
+                              right: 2,
+                              top: 2,
+                              child: Container(
+                                padding: const EdgeInsets.all(3),
+                                decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
+                                child: Text('$count', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDayReportsSheet(BuildContext context, int day, List<Report> dayReports) {
+    const mNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    final monthName = mNames[DateTime.now().month - 1];
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(child: Text('Reportes del $day de $monthName', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+              if (dayReports.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                  tooltip: 'Exportar PDF',
+                  onPressed: () {
+                    PdfReportService.generateAndPrintReport(dayReports);
+                  },
+                ),
+              IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+            ],
+          ),
+          const Divider(),
+          Expanded(
+            child: dayReports.isEmpty
+                ? const Center(child: Text('Sin reportes este dia'))
+                : ListView.builder(
+                    itemCount: dayReports.length,
+                    itemBuilder: (context, index) {
+                      final r = dayReports[index];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.grey.shade200,
+                          child: Icon(Icons.warning_amber, color: Colors.grey.shade700, size: 20),
+                        ),
+                        title: Text(r.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(r.description, maxLines: 2, overflow: TextOverflow.ellipsis),
+                            const SizedBox(height: 4),
+                            Text(r.time, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                          ],
+                        ),
+                        isThreeLine: true,
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: r.severity == 'Alta' ? Colors.red.shade100 : r.severity == 'Media' ? Colors.orange.shade100 : Colors.green.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(r.severity, style: TextStyle(
+                            color: r.severity == 'Alta' ? Colors.red.shade700 : r.severity == 'Media' ? Colors.orange.shade800 : Colors.green.shade700,
+                            fontSize: 12, fontWeight: FontWeight.bold,
+                          )),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -248,40 +471,146 @@ class _StatCard extends StatelessWidget {
 // ==========================================
 // 2. TAB MAPA
 // ==========================================
-class _MapTab extends StatelessWidget {
+class _MapTab extends StatefulWidget {
   const _MapTab();
 
   @override
+  State<_MapTab> createState() => _MapTabState();
+}
+
+class _MapTabState extends State<_MapTab> {
+  int _mapMode = 0; // 0 = Puntos de Calor, 1 = Vista Ciudadana
+
+    Color _getStatusRingColor(ReportStatus status) {
+    switch (status) {
+      case ReportStatus.reported:   return const Color(0xffd9684b);
+      case ReportStatus.reviewing:  return Colors.orange;
+      case ReportStatus.inProgress: return Colors.blue;
+      case ReportStatus.resolved:   return const Color(0xff4caf50);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Consumer<ReportController>(
-      builder: (context, controller, child) {
-        final reports = controller.reports.where((r) => r.latitude != null && r.longitude != null).toList();
-        
-        return FlutterMap(
-          options: const MapOptions(
-            initialCenter: LatLng(-17.3935, -66.1570), // Cochabamba
-            initialZoom: 13,
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: SegmentedButton<int>(
+            segments: const [
+              ButtonSegment(
+                value: 0,
+                label: Text('Puntos de Calor'),
+                icon: Icon(Icons.blur_on),
+              ),
+              ButtonSegment(
+                value: 1,
+                label: Text('Vista Ciudadana'),
+                icon: Icon(Icons.pin_drop),
+              ),
+            ],
+            selected: {_mapMode},
+            onSelectionChanged: (Set<int> newSelection) {
+              setState(() {
+                _mapMode = newSelection.first;
+              });
+            },
           ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.radar.kochala',
-            ),
-            CircleLayer(
-              circles: reports.map((r) => CircleMarker(
-                point: LatLng(r.latitude!, r.longitude!),
-                color: Colors.red.withValues(alpha: 0.3),
-                borderStrokeWidth: 1,
-                borderColor: Colors.red,
-                radius: 60,
-                useRadiusInMeter: true,
-              )).toList(),
-            ),
-          ],
-        );
-      },
+        ),
+        Expanded(
+          child: Consumer<ReportController>(
+            builder: (context, controller, child) {
+              final reports = controller.reports.where((r) => r.latitude != null && r.longitude != null).toList();
+              
+              return FlutterMap(
+                options: const MapOptions(
+                  initialCenter: LatLng(-17.3935, -66.1570), // Cochabamba
+                  initialZoom: 13,
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.radar.kochala',
+                  ),
+                  if (_mapMode == 0)
+                    CircleLayer(
+                      circles: reports.map((r) => CircleMarker(
+                        point: LatLng(r.latitude!, r.longitude!),
+                        color: Colors.red.withValues(alpha: 0.3),
+                        borderStrokeWidth: 1,
+                        borderColor: Colors.red,
+                        radius: 60,
+                        useRadiusInMeter: true,
+                      )).toList(),
+                    ),
+                  if (_mapMode == 1)
+                    MarkerClusterLayerWidget(
+                      options: MarkerClusterLayerOptions(
+                        maxClusterRadius: 45,
+                        size: const Size(40, 40),
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.all(50),
+                        markers: reports.map((r) => Marker(
+                          point: LatLng(r.latitude!, r.longitude!),
+                          width: 54,
+                          height: 54,
+                          child: GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => DetailView(report: r)),
+                            ),
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: _getStatusRingColor(r.status), width: 3.5),
+                                boxShadow: const [
+                                  BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
+                                ],
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(2.0),
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: categoryColor(r.category),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    categoryIcon(r.category),
+                                    color: Colors.white,
+                                    size: 22,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        )).toList(),
+                        builder: (context, markers) {
+                          return Container(
+                            decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(20),
+                                color: AppTheme.teal,
+                                border: Border.all(color: Colors.white, width: 2)),
+                            child: Center(
+                              child: Text(
+                                markers.length.toString(),
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
+
 }
 
 // ==========================================
@@ -481,15 +810,51 @@ class _StaffTabState extends State<_StaffTab> {
 // ==========================================
 // 4. TAB REPORTES
 // ==========================================
-class _ReportsTab extends StatelessWidget {
+class _ReportsTab extends StatefulWidget {
   const _ReportsTab();
+  @override
+  State<_ReportsTab> createState() => _ReportsTabState();
+}
+
+class _ReportsTabState extends State<_ReportsTab> {
+  String _searchQuery = '';
+  String _filterStatus = 'Todos';
+  String _filterCategory = 'Todas';
+  String _filterSeverity = 'Todas';
+
+  Widget _buildDropdown(String label, String value, List<String> opts, ValueChanged<String?> cb) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          const SizedBox(width: 6),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              isDense: true,
+              style: const TextStyle(fontSize: 13, color: Color(0xff121212), fontWeight: FontWeight.bold),
+              items: opts.map((o) => DropdownMenuItem(value: o, child: Text(o))).toList(),
+              onChanged: cb,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _deleteReport(BuildContext context, String id) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('¿Borrar reporte?'),
-        content: const Text('Esta acción es irreversible.'),
+        title: const Text('Borrar reporte?'),
+        content: const Text('Esta accion es irreversible.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
           TextButton(
@@ -499,14 +864,14 @@ class _ReportsTab extends StatelessWidget {
         ],
       ),
     );
-
     if (confirm == true) {
-      if (!context.mounted) return;
+      if (!mounted) return;
       try {
         await Supabase.instance.client.from('reports').delete().eq('id', id);
-        if (!context.mounted) return;
+        if (!mounted) return;
         context.read<ReportController>().load();
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error al borrar')));
       }
     }
@@ -523,15 +888,50 @@ class _ReportsTab extends StatelessWidget {
       },
       child: Consumer<ReportController>(
         builder: (context, controller, child) {
-          final reports = controller.reports;
-          
+          var reports = controller.reports;
+          if (_searchQuery.isNotEmpty) {
+            final q = _searchQuery.toLowerCase();
+            reports = reports.where((r) => r.title.toLowerCase().contains(q) || r.description.toLowerCase().contains(q)).toList();
+          }
+          if (_filterStatus != 'Todos') {
+            reports = reports.where((r) => r.status.name == _filterStatus).toList();
+          }
+          if (_filterCategory != 'Todas') {
+            reports = reports.where((r) => r.category.name == _filterCategory).toList();
+          }
+          if (_filterSeverity != 'Todas') {
+            reports = reports.where((r) => r.severity == _filterSeverity).toList();
+          }
+
           return ListView(
             padding: const EdgeInsets.all(24),
             children: [
-              const Text('Gestión de Reportes', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.ink)),
+              const Text('Gestion de Reportes', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.ink)),
               const SizedBox(height: 24),
-              
-              if (controller.loading && reports.isEmpty) 
+              TextField(
+                decoration: InputDecoration(
+                  hintText: 'Buscar reportes...',
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                ),
+                onChanged: (val) => setState(() => _searchQuery = val),
+              ),
+              const SizedBox(height: 12),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildDropdown('Estado:', _filterStatus, ['Todos', 'reported', 'reviewing', 'inProgress', 'resolved'], (v) => setState(() => _filterStatus = v!)),
+                    const SizedBox(width: 10),
+                    _buildDropdown('Categoria:', _filterCategory, ['Todas', 'pothole', 'waste', 'lighting', 'publicSpace', 'waterLeak', 'trafficLight', 'vandalism'], (v) => setState(() => _filterCategory = v!)),
+                    const SizedBox(width: 10),
+                    _buildDropdown('Gravedad:', _filterSeverity, ['Todas', 'Alta', 'Media', 'Baja'], (v) => setState(() => _filterSeverity = v!)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              if (controller.loading && reports.isEmpty)
                 const Center(child: CircularProgressIndicator())
               else if (reports.isEmpty)
                 const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('No hay reportes registrados.', style: TextStyle(color: Colors.grey))))
@@ -550,18 +950,35 @@ class _ReportsTab extends StatelessWidget {
                       ),
                       margin: const EdgeInsets.only(bottom: 8),
                       child: ListTile(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => DetailView(report: r)),
-                          );
-                        },
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DetailView(report: r))),
                         leading: CircleAvatar(
-                          backgroundColor: AppTheme.teal.withValues(alpha: 0.1),
-                          child: Icon(Icons.report, color: AppTheme.teal),
+                          backgroundColor: categoryColor(r.category).withValues(alpha: 0.12),
+                          child: Icon(categoryIcon(r.category), color: categoryColor(r.category)),
                         ),
                         title: Text(r.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('Estado: ${r.status.name} • Autor: ${r.authorId ?? 'Anónimo'}'),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 6),
+                            Row(children: [
+                              const Icon(Icons.access_time, size: 13, color: Colors.grey),
+                              const SizedBox(width: 4),
+                              Text(r.time, style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w600)),
+                            ]),
+                            const SizedBox(height: 6),
+                            Wrap(spacing: 6, runSpacing: 4, children: [
+                              _chip(r.status.name, Colors.blueGrey.shade50, Colors.blueGrey),
+                              _chip(r.category.name, Colors.blueGrey.shade50, Colors.blueGrey),
+                              _chip(
+                                r.severity,
+                                r.severity == 'Alta' ? Colors.red.shade100 : r.severity == 'Media' ? Colors.orange.shade100 : Colors.green.shade100,
+                                r.severity == 'Alta' ? Colors.red.shade700 : r.severity == 'Media' ? Colors.orange.shade800 : Colors.green.shade700,
+                                bold: true,
+                              ),
+                            ]),
+                          ],
+                        ),
+                        isThreeLine: true,
                         trailing: IconButton(
                           icon: const Icon(Icons.delete_outline, color: Colors.red),
                           onPressed: () => _deleteReport(context, r.id),
@@ -571,18 +988,18 @@ class _ReportsTab extends StatelessWidget {
                     );
                   },
                 ),
-                
               if (controller.loadingMore)
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
+                const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator())),
             ],
           );
         },
       ),
     );
   }
+
+  Widget _chip(String label, Color bg, Color fg, {bool bold = false}) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+    child: Text(label, style: TextStyle(fontSize: 11, color: fg, fontWeight: bold ? FontWeight.bold : FontWeight.w600)),
+  );
 }
-
-

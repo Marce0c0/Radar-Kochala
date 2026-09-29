@@ -23,10 +23,10 @@ class PdfReportService {
             ),
             pw.SizedBox(height: 10),
             pw.Text('Resumen General:', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
-            pw.Bullet(text: 'Total Reportes: \${reports.length}'),
-            pw.Bullet(text: 'Nuevos: \$reported'),
-            pw.Bullet(text: 'En Proceso: \$inProgress'),
-            pw.Bullet(text: 'Resueltos: \$resolved'),
+            pw.Bullet(text: 'Total Reportes: ${reports.length}'),
+            pw.Bullet(text: 'Nuevos: $reported'),
+            pw.Bullet(text: 'En Proceso: $inProgress'),
+            pw.Bullet(text: 'Resueltos: $resolved'),
             pw.SizedBox(height: 20),
             pw.Text('Lista de Reportes Recientes:', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 10),
@@ -49,7 +49,7 @@ class PdfReportService {
     // This works on web (opens print dialog or downloads) and mobile (opens share/print dialog).
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
-      name: 'Radar_Kochala_Informe_\${DateTime.now().toIso8601String().substring(0, 10)}.pdf',
+      name: 'Radar_Kochala_Informe_${DateTime.now().toIso8601String().substring(0, 10)}.pdf',
     );
   }
 }

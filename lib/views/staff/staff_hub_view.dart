@@ -210,6 +210,9 @@ class _ValidateReportViewState extends State<ValidateReportView> {
   String? _selectedWorkerId;
   bool _loadingWorkers = true;
   bool _validatingWithAi = false;
+  
+  List<Map<String, dynamic>> _history = [];
+  bool _loadingHistory = true;
 
   static const _statusLabels = {
     ReportStatus.reported:   'Reportado',
@@ -223,6 +226,26 @@ class _ValidateReportViewState extends State<ValidateReportView> {
     super.initState();
     _selectedStatus = widget.report.status;
     _loadWorkers();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final result = await Supabase.instance.client
+          .from('assignments')
+          .select('assigned_at, completed_at, worker_notes, operator_notes, profiles!worker_id(email)')
+          .eq('report_id', widget.report.id)
+          .order('assigned_at', ascending: false);
+      if (mounted) {
+        setState(() {
+          _history = List<Map<String, dynamic>>.from(result);
+          _loadingHistory = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading history: $e');
+      if (mounted) setState(() => _loadingHistory = false);
+    }
   }
 
   Future<void> _loadWorkers() async {
@@ -303,12 +326,8 @@ class _ValidateReportViewState extends State<ValidateReportView> {
           else
             ..._workers.map((w) {
               final id = w['id'].toString();
-              // Usa el email si está disponible (después de la migración),
-              // sino muestra los primeros 8 caracteres del UUID.
               final rawEmail = w['email']?.toString() ?? '';
-              final label = rawEmail.isNotEmpty
-                  ? rawEmail.split('@').first
-                  : 'Trabajador (${id.substring(0, 8)}...)';
+              final label = rawEmail.isNotEmpty ? rawEmail.split('@').first : 'Trabajador (${id.substring(0, 8)}...)';
               return StaffWorkerTile(
                 name: label,
                 selected: _selectedWorkerId == id,
@@ -322,25 +341,88 @@ class _ValidateReportViewState extends State<ValidateReportView> {
             onPressed: _save,
             child: const Text('Guardar y asignar'),
           ),
+
+          if (_history.isNotEmpty) ...[
+            const SizedBox(height: 32),
+            const StaffHeading('Historial de Asignaciones (Técnicos)'),
+            ..._history.map((h) {
+              final email = h['profiles'] != null ? h['profiles']['email'] : 'Desconocido';
+              final completed = h['completed_at'] != null;
+              final dateStr = h['assigned_at'] != null 
+                ? DateTime.tryParse(h['assigned_at'].toString())?.toLocal().toString().split('.')[0] 
+                : '';
+              
+              return Card(
+                elevation: 0,
+                color: const Color(0xfff5f7f6),
+                margin: const EdgeInsets.only(bottom: 12),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(completed ? Icons.check_circle : Icons.pending, 
+                               color: completed ? AppTheme.teal : Colors.orange, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(email, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text('Asignado: $dateStr', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      if (h['operator_notes'] != null && h['operator_notes'].toString().isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text('Instrucción: ${h['operator_notes']}', style: const TextStyle(fontSize: 13)),
+                        ),
+                      if (completed && h['worker_notes'] != null)
+                        Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+                          child: Text('Reporte Técnico: ${h['worker_notes']}', style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic)),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+          const SizedBox(height: 20),
         ]),
       );
 
   Future<void> _save() async {
+    if (_selectedWorkerId != null && 
+        (_selectedStatus == ReportStatus.reported || _selectedStatus == ReportStatus.reviewing)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xffd9684b),
+          content: Text('Cambia el estado a "En proceso" para asignar la tarea al trabajador.'),
+        ),
+      );
+      return;
+    }
+
     // Actualiza el estado del reporte.
     await context.read<ReportController>().updateStatus(widget.report.id, _selectedStatus);
-    // Si hay un trabajador seleccionado, crea o actualiza la asignación en la BD.
+    // Si hay un trabajador seleccionado, crea la asignación en la BD.
     if (_selectedWorkerId != null) {
       try {
         final client = Supabase.instance.client;
-        await client.from('assignments').upsert({
+        await client.from('assignments').insert({
           'report_id': widget.report.id,
           'worker_id': _selectedWorkerId,
           'operator_id': client.auth.currentUser?.id,
-          'worker_notes': _note.text.trim(),
+          'operator_notes': _note.text.trim(),
           'assigned_at': DateTime.now().toIso8601String(),
         });
       } catch (e) {
         debugPrint('Error al guardar asignación: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error interno asignando: $e')));
+        }
       }
     }
     if (mounted) {

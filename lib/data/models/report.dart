@@ -69,9 +69,12 @@ class Report {
     this.latitude,
     this.longitude,
     this.imageUrl,
+    this.resolvedImageUrl,
     this.authorId,
+    this.upvotes = 0,
     this.isMine = false,
     this.isAiVerified = false,
+    this.createdAt,
   });
 
   final String id;
@@ -85,9 +88,12 @@ class Report {
   final double? latitude;
   final double? longitude;
   final String? imageUrl;
+  final String? resolvedImageUrl;
   final String? authorId;
+  final int upvotes;
   final bool isMine;
   final bool isAiVerified;
+  final DateTime? createdAt;
 
   factory Report.fromMap(Map<String, dynamic> data, {String? currentUserId}) {
     // Calcula el tiempo relativo desde created_at real de la BD.
@@ -114,9 +120,35 @@ class Report {
       latitude: (data['latitude'] as num?)?.toDouble(),
       longitude: (data['longitude'] as num?)?.toDouble(),
       imageUrl: data['image_url'] as String?,
+      resolvedImageUrl: data['resolved_image_url'] as String?,
       authorId: data['author_id'] as String?,
+      upvotes: data['upvotes'] ?? 0,
       isMine: currentUserId != null && currentUserId == data['author_id'],
       isAiVerified: data['is_ai_verified'] == true,
+      createdAt: createdAt,
+    );
+  }
+
+  // Permite copiar un reporte cambiando sus upvotes
+  Report copyWith({int? upvotes}) {
+    return Report(
+      id: id,
+      title: title,
+      category: category,
+      status: status,
+      neighborhood: neighborhood,
+      time: time,
+      severity: severity,
+      description: description,
+      latitude: latitude,
+      longitude: longitude,
+      imageUrl: imageUrl,
+      resolvedImageUrl: resolvedImageUrl,
+      authorId: authorId,
+      upvotes: upvotes ?? this.upvotes,
+      isMine: isMine,
+      isAiVerified: isAiVerified,
+      createdAt: createdAt,
     );
   }
 
