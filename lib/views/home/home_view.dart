@@ -192,6 +192,46 @@ class _ExploreView extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildFilterChip(
+                  context,
+                  controller,
+                  ExploreFilterMode.recientes,
+                  'Recientes',
+                  Icons.access_time,
+                ),
+                const SizedBox(width: 8),
+                _buildFilterChip(
+                  context,
+                  controller,
+                  ExploreFilterMode.urgentes,
+                  'Graves',
+                  Icons.warning_amber_rounded,
+                ),
+                const SizedBox(width: 8),
+                _buildFilterChip(
+                  context,
+                  controller,
+                  ExploreFilterMode.populares,
+                  'Más Votados',
+                  Icons.local_fire_department,
+                ),
+                const SizedBox(width: 8),
+                _buildFilterChip(
+                  context,
+                  controller,
+                  ExploreFilterMode.resueltos,
+                  'Resueltos',
+                  Icons.check_circle_outline,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
           ...controller.visibleReports.map((r) => ReportCard(
                 report: r,
                 onTap: () => Navigator.push(
@@ -211,6 +251,30 @@ class _ExploreView extends StatelessWidget {
             ),
         ],
       ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(BuildContext context, ReportController controller, ExploreFilterMode mode, String label, IconData icon) {
+    final isSelected = controller.exploreMode == mode;
+    return ChoiceChip(
+      label: Text(label),
+      avatar: Icon(icon, size: 18, color: isSelected ? AppTheme.teal : Colors.grey[700]),
+      selected: isSelected,
+      onSelected: (selected) {
+        if (selected) controller.setExploreMode(mode);
+      },
+      selectedColor: AppTheme.teal.withValues(alpha: 0.15),
+      backgroundColor: Colors.white,
+      labelStyle: TextStyle(
+        color: isSelected ? AppTheme.teal : Colors.grey[800],
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      ),
+      side: BorderSide(
+        color: isSelected ? AppTheme.teal : Colors.grey[300]!,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
       ),
     );
   }
@@ -371,6 +435,7 @@ class _MyReportsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<ReportController>();
     final myReports = controller.reports.where((r) => r.isMine).toList();
+    final pendingDrafts = controller.pendingDrafts;
     final isGuest = Supabase.instance.client.auth.currentUser == null;
 
     if (isGuest) {
@@ -421,6 +486,59 @@ class _MyReportsView extends StatelessWidget {
           const Text('Aquí puedes seguir los reportes que enviaste.',
               style: TextStyle(color: Color(0xff668080))),
           const SizedBox(height: 26),
+          
+          if (pendingDrafts.isNotEmpty) ...[
+            Row(
+              children: [
+                const Icon(Icons.cloud_off, color: Colors.orange),
+                const SizedBox(width: 8),
+                const Text('Pendientes (Offline)',
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.ink)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ...pendingDrafts.map((draft) => Card(
+                  elevation: 0,
+                  color: Colors.orange.shade50,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: Colors.orange.shade200),
+                  ),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(16),
+                    leading: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(categoryIcon(draft.category), color: Colors.orange),
+                    ),
+                    title: Text(categoryName(draft.category), style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(draft.description, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    trailing: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.access_time, color: Colors.orange, size: 16),
+                        Text('En espera', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 10)),
+                      ],
+                    ),
+                  ),
+                )),
+            const SizedBox(height: 24),
+          ],
+
+          const Text('Publicados',
+              style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.ink)),
+          const SizedBox(height: 10),
+
           if (myReports.isEmpty)
             const Padding(
               padding: EdgeInsets.all(30),

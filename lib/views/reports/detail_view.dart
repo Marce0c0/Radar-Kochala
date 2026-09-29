@@ -42,6 +42,39 @@ class _DetailViewState extends State<DetailView> {
     } catch (_) {}
   }
 
+  Future<void> _reopenReport(BuildContext context, Report report) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Reportar resolución falsa?'),
+        content: const Text('Si el problema no fue solucionado, este caso volverá a la cuadrilla y los técnicos responsables serán penalizados por la resolución falsa.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Reportar y Reabrir', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final client = Supabase.instance.client;
+      await client.from('reports').update({
+        'status': 'reviewing' // Devuelve a revisión para que el operador asigne otro equipo o lo penalice
+      }).eq('id', report.id);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reporte reabierto y enviado a auditoría.'), backgroundColor: Colors.redAccent));
+        Navigator.pop(context); // Vuelve atrás para recargar
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al reabrir: $e')));
+    }
+  }
+
   Future<void> _toggleVote() async {
     final client = Supabase.instance.client;
     final userId = client.auth.currentUser?.id;
@@ -160,6 +193,74 @@ class _DetailViewState extends State<DetailView> {
                                   color: Colors.white,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+          
+          if (report.resolvedImageUrl != null && report.resolvedImageUrl!.isNotEmpty) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(22),
+              child: Container(
+                height: 220,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: const Color(0xffdcebe6),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.ink.withValues(alpha: 0.08),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.network(
+                      report.resolvedImageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Center(
+                        child: Icon(Icons.broken_image_outlined,
+                            size: 50, color: Color(0xff78908d)),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 10, horizontal: 16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.green.withValues(alpha: 0.8)
+                            ],
+                          ),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.check_circle_outline,
+                                color: Colors.white, size: 18),
+                            SizedBox(width: 8),
+                            Text(
+                              'Evidencia de Resolución (Técnico)',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700),
                             ),
                           ],
                         ),
@@ -387,6 +488,47 @@ class _DetailViewState extends State<DetailView> {
             ),
           ),
           const SizedBox(height: 20),
+
+          // --- REABRIR REPORTE FALSO ---
+          if (report.status == ReportStatus.resolved) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xfffce8e8),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xffd9684b).withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '¿El problema persiste o el trabajo es falso?',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xffd9684b), fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Si este caso ha sido marcado como resuelto de manera engañosa, reporta la falla para que la alcaldía penalice a los técnicos responsables y reasigne el trabajo.',
+                    style: TextStyle(fontSize: 13, color: Color(0xffd9684b)),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _reopenReport(context, report),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xffd9684b),
+                        side: const BorderSide(color: Color(0xffd9684b)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      icon: const Icon(Icons.warning_amber_rounded),
+                      label: const Text('Reclamar Resolución Falsa', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
         ],
       ),
     );

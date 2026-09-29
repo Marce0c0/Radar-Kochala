@@ -59,30 +59,22 @@ class OfflineSyncService {
         final imageBytes = base64Decode(task['imageBytesBase64']);
         final reportId = task['reportId'];
         
-        // 1. Validar con IA en background
-        final validation = await AiValidationService.validateResolutionImage(
-          imageBytes, 
-          task['category']
-        );
+        // Se omite la validación de IA para los trabajadores, ya que son personal de confianza.
         
-        if (validation.contains('VALIDO')) {
-          // Obtener el reporte original desde el controller (o fetch manual)
-          final originalReport = controller.reports.firstWhere((r) => r.id == reportId);
-          
-          // 2. Subir imagen y marcar resuelto
-          await controller.resolveReport(originalReport, imageBytes, task['ext']);
+        // Obtener el reporte original desde el controller (o fetch manual)
+        final originalReport = controller.reports.firstWhere((r) => r.id == reportId);
+        
+        // 1. Subir imagen y marcar resuelto
+        await controller.resolveReport(originalReport, imageBytes, task['ext']);
 
-          // 3. Actualizar asignación
-          await client.from('assignments')
-            .update({
-              'worker_notes': task['notes'],
-              'completed_at': DateTime.now().toIso8601String(),
-            })
-            .eq('report_id', reportId)
-            .eq('worker_id', userId ?? '');
-        } else {
-          debugPrint('Reporte $reportId rechazado por IA durante sincronización offline.');
-        }
+        // 2. Actualizar asignación
+        await client.from('assignments')
+          .update({
+            'worker_notes': task['notes'],
+            'completed_at': DateTime.now().toIso8601String(),
+          })
+          .eq('report_id', reportId)
+          .eq('worker_id', userId ?? '');
       } catch (e) {
         debugPrint('Error sincronizando tarea $taskJson: $e');
         remainingQueue.add(taskJson); // Keep in queue if it failed (e.g. server error)
@@ -93,7 +85,7 @@ class OfflineSyncService {
     
     if (queue.length > remainingQueue.length && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('\${queue.length - remainingQueue.length} tareas sincronizadas con éxito al recuperar conexión.'))
+        SnackBar(content: Text('${queue.length - remainingQueue.length} tareas sincronizadas con éxito al recuperar conexión.'))
       );
     }
   }
