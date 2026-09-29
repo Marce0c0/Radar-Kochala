@@ -207,7 +207,7 @@ class _ValidateReportViewState extends State<ValidateReportView> {
   late ReportStatus _selectedStatus;
   final _note = TextEditingController();
   List<Map<String, dynamic>> _workers = [];
-  String? _selectedWorkerId;
+  List<String> _selectedWorkerIds = [];
   bool _loadingWorkers = true;
   bool _validatingWithAi = false;
   
@@ -257,7 +257,7 @@ class _ValidateReportViewState extends State<ValidateReportView> {
       if (mounted) {
         setState(() {
           _workers = List<Map<String, dynamic>>.from(result);
-          if (_workers.isNotEmpty) _selectedWorkerId = _workers.first['id'].toString();
+          if (_workers.isNotEmpty) _selectedWorkerIds = [];
           _loadingWorkers = false;
         });
       }
@@ -330,8 +330,14 @@ class _ValidateReportViewState extends State<ValidateReportView> {
               final label = rawEmail.isNotEmpty ? rawEmail.split('@').first : 'Trabajador (${id.substring(0, 8)}...)';
               return StaffWorkerTile(
                 name: label,
-                selected: _selectedWorkerId == id,
-                onTap: () => setState(() => _selectedWorkerId = id),
+                selected: _selectedWorkerIds.contains(id),
+                onTap: () => setState(() {
+                  if (_selectedWorkerIds.contains(id)) {
+                    _selectedWorkerIds.remove(id);
+                  } else {
+                    _selectedWorkerIds.add(id);
+                  }
+                }),
               );
             }),
           const StaffHeading('Nota de atención'),
@@ -394,7 +400,7 @@ class _ValidateReportViewState extends State<ValidateReportView> {
       );
 
   Future<void> _save() async {
-    if (_selectedWorkerId != null && 
+    if (_selectedWorkerIds.isNotEmpty && 
         (_selectedStatus == ReportStatus.reported || _selectedStatus == ReportStatus.reviewing)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
