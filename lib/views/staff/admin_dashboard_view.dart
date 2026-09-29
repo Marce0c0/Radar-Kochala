@@ -1,4 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+class DummyLocalStorage extends LocalStorage {
+  @override
+  Future<void> initialize() async {}
+  @override
+  Future<String?> accessToken() async => null;
+  @override
+  Future<void> persistSession(String sessionString) async {}
+  @override
+  Future<void> removeSession() async {}
+  @override
+  Future<bool> hasAccessToken() async => false;
+}
+
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -28,6 +43,94 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const RoleSelectionView()),
+    );
+  }
+
+
+  Future<void> _crearNuevoTrabajador() async {
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    String selectedRole = 'trabajador';
+    bool isLoading = false;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('Crear Personal'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: emailCtrl,
+                  decoration: const InputDecoration(labelText: 'Correo Institucional'),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                TextField(
+                  controller: passCtrl,
+                  decoration: const InputDecoration(labelText: 'Contraseña'),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedRole,
+                  items: const [
+                    DropdownMenuItem(value: 'trabajador', child: Text('Trabajador')),
+                    DropdownMenuItem(value: 'admin', child: Text('Administrador')),
+                  ],
+                  onChanged: (v) => setStateDialog(() => selectedRole = v!),
+                  decoration: const InputDecoration(labelText: 'Rol'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+              FilledButton(
+                onPressed: isLoading ? null : () async {
+                  if (emailCtrl.text.isEmpty || passCtrl.text.length < 6) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Datos inválidos')));
+                    return;
+                  }
+                  setStateDialog(() => isLoading = true);
+                  try {
+                    final tempClient = SupabaseClient(
+                      dotenv.env['SUPABASE_URL']!,
+                      dotenv.env['SUPABASE_ANON_KEY']!,
+                      authOptions: AuthClientOptions(pkceAsyncStorage: DummyLocalStorage()),
+                    );
+                    
+                    final res = await tempClient.auth.signUp(
+                      email: emailCtrl.text.trim(),
+                      password: passCtrl.text,
+                    );
+                    
+                    if (res.user != null) {
+                      // Esperar un segundo para que el trigger de BD cree el perfil
+                      await Future.delayed(const Duration(seconds: 1));
+                      // Actualizar el rol con el cliente principal
+                      await Supabase.instance.client
+                          .from('profiles')
+                          .update({'role': selectedRole})
+                          .eq('id', res.user!.id);
+                      
+                      Navigator.pop(ctx);
+                      _loadUsers();
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Personal creado con éxito')));
+                    }
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  } finally {
+                    setStateDialog(() => isLoading = false);
+                  }
+                },
+                style: FilledButton.styleFrom(backgroundColor: AppTheme.teal),
+                child: isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Crear Cuenta'),
+              ),
+            ],
+          );
+        }
+      ),
     );
   }
 
@@ -171,6 +274,94 @@ class _MetricsTabState extends State<_MetricsTab> {
     );
   }
 
+
+  Future<void> _crearNuevoTrabajador() async {
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    String selectedRole = 'trabajador';
+    bool isLoading = false;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('Crear Personal'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: emailCtrl,
+                  decoration: const InputDecoration(labelText: 'Correo Institucional'),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                TextField(
+                  controller: passCtrl,
+                  decoration: const InputDecoration(labelText: 'Contraseña'),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedRole,
+                  items: const [
+                    DropdownMenuItem(value: 'trabajador', child: Text('Trabajador')),
+                    DropdownMenuItem(value: 'admin', child: Text('Administrador')),
+                  ],
+                  onChanged: (v) => setStateDialog(() => selectedRole = v!),
+                  decoration: const InputDecoration(labelText: 'Rol'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+              FilledButton(
+                onPressed: isLoading ? null : () async {
+                  if (emailCtrl.text.isEmpty || passCtrl.text.length < 6) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Datos inválidos')));
+                    return;
+                  }
+                  setStateDialog(() => isLoading = true);
+                  try {
+                    final tempClient = SupabaseClient(
+                      dotenv.env['SUPABASE_URL']!,
+                      dotenv.env['SUPABASE_ANON_KEY']!,
+                      authOptions: AuthClientOptions(pkceAsyncStorage: DummyLocalStorage()),
+                    );
+                    
+                    final res = await tempClient.auth.signUp(
+                      email: emailCtrl.text.trim(),
+                      password: passCtrl.text,
+                    );
+                    
+                    if (res.user != null) {
+                      // Esperar un segundo para que el trigger de BD cree el perfil
+                      await Future.delayed(const Duration(seconds: 1));
+                      // Actualizar el rol con el cliente principal
+                      await Supabase.instance.client
+                          .from('profiles')
+                          .update({'role': selectedRole})
+                          .eq('id', res.user!.id);
+                      
+                      Navigator.pop(ctx);
+                      _loadUsers();
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Personal creado con éxito')));
+                    }
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  } finally {
+                    setStateDialog(() => isLoading = false);
+                  }
+                },
+                style: FilledButton.styleFrom(backgroundColor: AppTheme.teal),
+                child: isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Crear Cuenta'),
+              ),
+            ],
+          );
+        }
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<ReportController>(
@@ -269,6 +460,94 @@ class _MetricsTabState extends State<_MetricsTab> {
 class _AdminCalendar extends StatelessWidget {
   final List<Report> reports;
   const _AdminCalendar({required this.reports});
+
+
+  Future<void> _crearNuevoTrabajador() async {
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    String selectedRole = 'trabajador';
+    bool isLoading = false;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('Crear Personal'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: emailCtrl,
+                  decoration: const InputDecoration(labelText: 'Correo Institucional'),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                TextField(
+                  controller: passCtrl,
+                  decoration: const InputDecoration(labelText: 'Contraseña'),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedRole,
+                  items: const [
+                    DropdownMenuItem(value: 'trabajador', child: Text('Trabajador')),
+                    DropdownMenuItem(value: 'admin', child: Text('Administrador')),
+                  ],
+                  onChanged: (v) => setStateDialog(() => selectedRole = v!),
+                  decoration: const InputDecoration(labelText: 'Rol'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+              FilledButton(
+                onPressed: isLoading ? null : () async {
+                  if (emailCtrl.text.isEmpty || passCtrl.text.length < 6) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Datos inválidos')));
+                    return;
+                  }
+                  setStateDialog(() => isLoading = true);
+                  try {
+                    final tempClient = SupabaseClient(
+                      dotenv.env['SUPABASE_URL']!,
+                      dotenv.env['SUPABASE_ANON_KEY']!,
+                      authOptions: AuthClientOptions(pkceAsyncStorage: DummyLocalStorage()),
+                    );
+                    
+                    final res = await tempClient.auth.signUp(
+                      email: emailCtrl.text.trim(),
+                      password: passCtrl.text,
+                    );
+                    
+                    if (res.user != null) {
+                      // Esperar un segundo para que el trigger de BD cree el perfil
+                      await Future.delayed(const Duration(seconds: 1));
+                      // Actualizar el rol con el cliente principal
+                      await Supabase.instance.client
+                          .from('profiles')
+                          .update({'role': selectedRole})
+                          .eq('id', res.user!.id);
+                      
+                      Navigator.pop(ctx);
+                      _loadUsers();
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Personal creado con éxito')));
+                    }
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  } finally {
+                    setStateDialog(() => isLoading = false);
+                  }
+                },
+                style: FilledButton.styleFrom(backgroundColor: AppTheme.teal),
+                child: isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Crear Cuenta'),
+              ),
+            ],
+          );
+        }
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -490,6 +769,94 @@ class _MapTabState extends State<_MapTab> {
     }
   }
 
+
+  Future<void> _crearNuevoTrabajador() async {
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    String selectedRole = 'trabajador';
+    bool isLoading = false;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('Crear Personal'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: emailCtrl,
+                  decoration: const InputDecoration(labelText: 'Correo Institucional'),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                TextField(
+                  controller: passCtrl,
+                  decoration: const InputDecoration(labelText: 'Contraseña'),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedRole,
+                  items: const [
+                    DropdownMenuItem(value: 'trabajador', child: Text('Trabajador')),
+                    DropdownMenuItem(value: 'admin', child: Text('Administrador')),
+                  ],
+                  onChanged: (v) => setStateDialog(() => selectedRole = v!),
+                  decoration: const InputDecoration(labelText: 'Rol'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+              FilledButton(
+                onPressed: isLoading ? null : () async {
+                  if (emailCtrl.text.isEmpty || passCtrl.text.length < 6) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Datos inválidos')));
+                    return;
+                  }
+                  setStateDialog(() => isLoading = true);
+                  try {
+                    final tempClient = SupabaseClient(
+                      dotenv.env['SUPABASE_URL']!,
+                      dotenv.env['SUPABASE_ANON_KEY']!,
+                      authOptions: AuthClientOptions(pkceAsyncStorage: DummyLocalStorage()),
+                    );
+                    
+                    final res = await tempClient.auth.signUp(
+                      email: emailCtrl.text.trim(),
+                      password: passCtrl.text,
+                    );
+                    
+                    if (res.user != null) {
+                      // Esperar un segundo para que el trigger de BD cree el perfil
+                      await Future.delayed(const Duration(seconds: 1));
+                      // Actualizar el rol con el cliente principal
+                      await Supabase.instance.client
+                          .from('profiles')
+                          .update({'role': selectedRole})
+                          .eq('id', res.user!.id);
+                      
+                      Navigator.pop(ctx);
+                      _loadUsers();
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Personal creado con éxito')));
+                    }
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  } finally {
+                    setStateDialog(() => isLoading = false);
+                  }
+                },
+                style: FilledButton.styleFrom(backgroundColor: AppTheme.teal),
+                child: isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Crear Cuenta'),
+              ),
+            ],
+          );
+        }
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -696,6 +1063,94 @@ class _StaffTabState extends State<_StaffTab> {
     }
   }
 
+
+  Future<void> _crearNuevoTrabajador() async {
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    String selectedRole = 'trabajador';
+    bool isLoading = false;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('Crear Personal'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: emailCtrl,
+                  decoration: const InputDecoration(labelText: 'Correo Institucional'),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                TextField(
+                  controller: passCtrl,
+                  decoration: const InputDecoration(labelText: 'Contraseña'),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedRole,
+                  items: const [
+                    DropdownMenuItem(value: 'trabajador', child: Text('Trabajador')),
+                    DropdownMenuItem(value: 'admin', child: Text('Administrador')),
+                  ],
+                  onChanged: (v) => setStateDialog(() => selectedRole = v!),
+                  decoration: const InputDecoration(labelText: 'Rol'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+              FilledButton(
+                onPressed: isLoading ? null : () async {
+                  if (emailCtrl.text.isEmpty || passCtrl.text.length < 6) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Datos inválidos')));
+                    return;
+                  }
+                  setStateDialog(() => isLoading = true);
+                  try {
+                    final tempClient = SupabaseClient(
+                      dotenv.env['SUPABASE_URL']!,
+                      dotenv.env['SUPABASE_ANON_KEY']!,
+                      authOptions: AuthClientOptions(pkceAsyncStorage: DummyLocalStorage()),
+                    );
+                    
+                    final res = await tempClient.auth.signUp(
+                      email: emailCtrl.text.trim(),
+                      password: passCtrl.text,
+                    );
+                    
+                    if (res.user != null) {
+                      // Esperar un segundo para que el trigger de BD cree el perfil
+                      await Future.delayed(const Duration(seconds: 1));
+                      // Actualizar el rol con el cliente principal
+                      await Supabase.instance.client
+                          .from('profiles')
+                          .update({'role': selectedRole})
+                          .eq('id', res.user!.id);
+                      
+                      Navigator.pop(ctx);
+                      _loadUsers();
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Personal creado con éxito')));
+                    }
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  } finally {
+                    setStateDialog(() => isLoading = false);
+                  }
+                },
+                style: FilledButton.styleFrom(backgroundColor: AppTheme.teal),
+                child: isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Crear Cuenta'),
+              ),
+            ],
+          );
+        }
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -875,6 +1330,94 @@ class _ReportsTabState extends State<_ReportsTab> {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error al borrar')));
       }
     }
+  }
+
+
+  Future<void> _crearNuevoTrabajador() async {
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    String selectedRole = 'trabajador';
+    bool isLoading = false;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('Crear Personal'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: emailCtrl,
+                  decoration: const InputDecoration(labelText: 'Correo Institucional'),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                TextField(
+                  controller: passCtrl,
+                  decoration: const InputDecoration(labelText: 'Contraseña'),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedRole,
+                  items: const [
+                    DropdownMenuItem(value: 'trabajador', child: Text('Trabajador')),
+                    DropdownMenuItem(value: 'admin', child: Text('Administrador')),
+                  ],
+                  onChanged: (v) => setStateDialog(() => selectedRole = v!),
+                  decoration: const InputDecoration(labelText: 'Rol'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+              FilledButton(
+                onPressed: isLoading ? null : () async {
+                  if (emailCtrl.text.isEmpty || passCtrl.text.length < 6) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Datos inválidos')));
+                    return;
+                  }
+                  setStateDialog(() => isLoading = true);
+                  try {
+                    final tempClient = SupabaseClient(
+                      dotenv.env['SUPABASE_URL']!,
+                      dotenv.env['SUPABASE_ANON_KEY']!,
+                      authOptions: AuthClientOptions(pkceAsyncStorage: DummyLocalStorage()),
+                    );
+                    
+                    final res = await tempClient.auth.signUp(
+                      email: emailCtrl.text.trim(),
+                      password: passCtrl.text,
+                    );
+                    
+                    if (res.user != null) {
+                      // Esperar un segundo para que el trigger de BD cree el perfil
+                      await Future.delayed(const Duration(seconds: 1));
+                      // Actualizar el rol con el cliente principal
+                      await Supabase.instance.client
+                          .from('profiles')
+                          .update({'role': selectedRole})
+                          .eq('id', res.user!.id);
+                      
+                      Navigator.pop(ctx);
+                      _loadUsers();
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Personal creado con éxito')));
+                    }
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  } finally {
+                    setStateDialog(() => isLoading = false);
+                  }
+                },
+                style: FilledButton.styleFrom(backgroundColor: AppTheme.teal),
+                child: isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Crear Cuenta'),
+              ),
+            ],
+          );
+        }
+      ),
+    );
   }
 
   @override
