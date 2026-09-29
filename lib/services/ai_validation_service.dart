@@ -84,7 +84,7 @@ class AiValidationService {
 
   /// Verifica que la imagen sea un documento de identidad real y que el número
   /// coincida. Retorna true si la IA confirma el documento, false si no.
-  static Future<bool> verifyIdentityDocument(Uint8List imageBytes, String docTypeName, String docNumber) async {
+  static Future<bool> verifyIdentityDocument(Uint8List imageBytes, String docTypeName, String docNumber, String fullName) async {
     final model = _getModel();
     if (model == null) throw Exception('API Key no configurada');
 
