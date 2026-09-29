@@ -54,3 +54,4 @@ skills-lock.json
 
 # Configuración de variables de entorno
 .env
+env.txt

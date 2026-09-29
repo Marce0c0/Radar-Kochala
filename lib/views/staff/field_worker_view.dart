@@ -432,19 +432,7 @@ class _TaskExecutionViewState extends State<TaskExecutionView> {
         return;
       }
 
-      // 1. Validar con IA
-      final validation = await AiValidationService.validateResolutionImage(
-        Uint8List.fromList(_imageBytes!), 
-        categoryName(widget.report.category)
-      );
-
-      if (validation.contains('INVALIDO')) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('La IA determinó que la foto no muestra una reparación válida. Intenta de nuevo.')));
-        setState(() => _isUploading = false);
-        return;
-      }
-
-      // 2. Subir imagen, actualizar estado a Resuelto y sumar puntos
+      // 1. Subir imagen, actualizar estado a Resuelto y sumar puntos
       await context.read<ReportController>().resolveReport(widget.report, _imageBytes!, ext);
 
       // 3. Guardar las notas del trabajador en la tabla assignments

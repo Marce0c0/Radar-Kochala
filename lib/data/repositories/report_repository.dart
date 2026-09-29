@@ -22,24 +22,33 @@ class ReportRepository {
     await prefs.setStringList(_offlineQueueKey, queue);
   }
 
-  Future<void> syncQueue() async {
+  Future<List<ReportDraft>> getPendingDrafts() async {
     final prefs = await SharedPreferences.getInstance();
     final queue = prefs.getStringList(_offlineQueueKey) ?? [];
-    if (queue.isEmpty) return;
+    return queue.map((item) => ReportDraft.fromJson(jsonDecode(item))).toList();
+  }
 
+  Future<int> syncQueue() async {
+    final prefs = await SharedPreferences.getInstance();
+    final queue = prefs.getStringList(_offlineQueueKey) ?? [];
+    if (queue.isEmpty) return 0;
+
+    int count = 0;
     List<String> remaining = [];
     for (final item in queue) {
       try {
         final draftMap = jsonDecode(item);
         final draft = ReportDraft.fromJson(draftMap);
         await createReport(draft); 
+        count++;
       } catch (e) {
-        debugPrint('Error syncing offline report: \$e');
+        debugPrint('Error syncing offline report: $e');
         remaining.add(item); 
       }
     }
     
     await prefs.setStringList(_offlineQueueKey, remaining);
+    return count;
   }
 
   Future<List<Report>> fetchReports({int limit = 50, int offset = 0}) async {
@@ -55,7 +64,7 @@ class ReportRepository {
           .map((data) => Report.fromMap(data, currentUserId: _currentUserId))
           .toList();
     } catch (e) {
-      debugPrint('Error al cargar reportes: \$e');
+      debugPrint('Error al cargar reportes: $e');
       return [];
     }
   }
@@ -67,26 +76,26 @@ class ReportRepository {
     if (kIsWeb && draft.imageBytes != null) {
       try {
         final fileName =
-            '\${DateTime.now().millisecondsSinceEpoch}_\$_currentUserId.jpg';
+            '${DateTime.now().millisecondsSinceEpoch}_$_currentUserId.jpg';
         await _client.storage
             .from('report_images')
             .uploadBinary(fileName, Uint8List.fromList(draft.imageBytes!), fileOptions: const FileOptions(contentType: 'image/jpeg'));
         finalImageUrl =
             _client.storage.from('report_images').getPublicUrl(fileName);
       } catch (e) {
-        debugPrint('Error al subir imagen (web): \$e');
+        debugPrint('Error al subir imagen (web): $e');
       }
     } else if (!kIsWeb && draft.imageUrl != null && draft.imageUrl!.isNotEmpty) {
       try {
         final file = File(draft.imageUrl!);
         final fileExt = file.path.split('.').last;
         final fileName =
-            '\${DateTime.now().millisecondsSinceEpoch}_\$_currentUserId.\$fileExt';
+            '${DateTime.now().millisecondsSinceEpoch}_$_currentUserId.$fileExt';
         await _client.storage.from('report_images').upload(fileName, file);
         finalImageUrl =
             _client.storage.from('report_images').getPublicUrl(fileName);
       } catch (e) {
-        debugPrint('Error al subir imagen (móvil): \$e');
+        debugPrint('Error al subir imagen (móvil): $e');
       }
     }
 
@@ -138,7 +147,7 @@ class ReportRepository {
 
   Future<void> resolveReport(Report report, List<int> imageBytes, String imageExtension) async {
     // Subir la imagen de prueba de trabajo
-    final fileName = 'resolved_\${DateTime.now().millisecondsSinceEpoch}_\${report.id}.\$imageExtension';
+    final fileName = 'resolved_${DateTime.now().millisecondsSinceEpoch}_${report.id}.$imageExtension';
     await _client.storage.from('report_images').uploadBinary(fileName, Uint8List.fromList(imageBytes));
     final resolvedImageUrl = _client.storage.from('report_images').getPublicUrl(fileName);
 
@@ -153,8 +162,17 @@ class ReportRepository {
       try {
         await _client.rpc('increment_points', params: {'user_id': report.authorId, 'amount': 10});
       } catch (e) {
-        debugPrint('Error incrementing points: \$e');
+        debugPrint('Error incrementing points: $e');
       }
+    }
+  }
+
+  Future<void> voteForReport(String reportId) async {
+    try {
+      await _client.rpc('increment_upvotes', params: {'report_id': reportId});
+    } catch (e) {
+      debugPrint('Error voting for report: $e');
+      rethrow;
     }
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../controllers/report_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/report.dart';
@@ -163,17 +164,15 @@ class ProfileView extends StatelessWidget {
         _ActionTile(
             icon: Icons.notifications_none,
             title: 'Notificaciones',
-            onTap: () => _showMessage(context, 'Notificaciones activadas')),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsSettingsView()))),
         _ActionTile(
             icon: Icons.shield_outlined,
             title: 'Privacidad y datos',
-            onTap: () =>
-                _showMessage(context, 'Tus datos se mantienen protegidos')),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyPolicyView()))),
         _ActionTile(
             icon: Icons.help_outline,
             title: 'Ayuda y soporte',
-            onTap: () =>
-                _showMessage(context, 'Soporte disponible de lunes a viernes')),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SupportTicketView(userEmail: email)))),
         if (!isGuest)
           // CORRECCIÓN #6: signOut() real + navegación a RoleSelectionView.
           _ActionTile(
@@ -293,4 +292,280 @@ class _ActionTile extends StatelessWidget {
         trailing: const Icon(Icons.chevron_right, color: Color(0xff9aaba7)),
         onTap: onTap,
       );
+}
+
+class NotificationsSettingsView extends StatefulWidget {
+  const NotificationsSettingsView({super.key});
+  @override
+  State<NotificationsSettingsView> createState() => _NotificationsSettingsViewState();
+}
+
+class _NotificationsSettingsViewState extends State<NotificationsSettingsView> {
+  bool _newReports = true;
+  bool _myUpdates = true;
+  bool _announcements = false;
+  bool _weeklySummary = true;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _newReports = prefs.getBool('notif_new_reports') ?? true;
+      _myUpdates = prefs.getBool('notif_my_updates') ?? true;
+      _announcements = prefs.getBool('notif_announcements') ?? false;
+      _weeklySummary = prefs.getBool('notif_weekly_summary') ?? true;
+      _loading = false;
+    });
+  }
+
+  Future<void> _toggleSetting(String key, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Notificaciones', style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        children: [
+          SwitchListTile(
+            activeColor: AppTheme.teal,
+            title: const Text('Actualizaciones de mis reportes', style: TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: const Text('Recibe alertas cuando un operador asigne o resuelva tu caso.'),
+            value: _myUpdates,
+            onChanged: (v) {
+              setState(() => _myUpdates = v);
+              _toggleSetting('notif_my_updates', v);
+            },
+          ),
+          const Divider(height: 1),
+          SwitchListTile(
+            activeColor: AppTheme.teal,
+            title: const Text('Nuevos reportes cerca de mi', style: TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: const Text('Te avisaremos cuando tus vecinos reporten problemas cercanos.'),
+            value: _newReports,
+            onChanged: (v) {
+              setState(() => _newReports = v);
+              _toggleSetting('notif_new_reports', v);
+            },
+          ),
+          const Divider(height: 1),
+          SwitchListTile(
+            activeColor: AppTheme.teal,
+            title: const Text('Avisos de la alcaldía', style: TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: const Text('Información oficial sobre cortes de vía y mantenimientos programados.'),
+            value: _announcements,
+            onChanged: (v) {
+              setState(() => _announcements = v);
+              _toggleSetting('notif_announcements', v);
+            },
+          ),
+          const Divider(height: 1),
+          SwitchListTile(
+            activeColor: AppTheme.teal,
+            title: const Text('Resumen semanal del ranking', style: TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: const Text('Descubre quiénes fueron los ciudadanos más activos de la semana.'),
+            value: _weeklySummary,
+            onChanged: (v) {
+              setState(() => _weeklySummary = v);
+              _toggleSetting('notif_weekly_summary', v);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PrivacyPolicyView extends StatelessWidget {
+  const PrivacyPolicyView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Privacidad y Datos', style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Políticas de Privacidad y Términos de Uso',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppTheme.ink),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Al registrarte y utilizar Radar Kochala, aceptas las siguientes políticas respecto a tus datos personales y contenido generado:',
+              style: TextStyle(fontSize: 15, height: 1.5),
+            ),
+            const SizedBox(height: 24),
+            _buildSection('1. Uso de la Ubicación', 
+              'La aplicación recopila datos de ubicación (GPS) únicamente al momento de registrar un reporte para asociarlo a una ubicación en el mapa. No realizamos un seguimiento de tu ubicación en segundo plano.'),
+            _buildSection('2. Fotografías y Evidencia', 
+              'Las imágenes que subas a la plataforma serán públicas y accesibles por la alcaldía y otros ciudadanos con el fin de resolver problemas urbanos. Asegúrate de no incluir rostros, placas vehiculares o información personal en tus fotos.'),
+            _buildSection('3. Datos de la Cuenta', 
+              'Tu correo electrónico se utiliza exclusivamente para iniciar sesión y enviarte notificaciones sobre tus reportes. No compartimos tu correo con terceros ni lo utilizamos para fines publicitarios.'),
+            _buildSection('4. Penalizaciones por Uso Indebido', 
+              'El equipo de Radar Kochala se reserva el derecho de suspender cuentas que suban contenido inapropiado, generen reportes falsos o intenten alterar el ranking ciudadano maliciosamente.'),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.teal.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.shield_outlined, color: AppTheme.teal, size: 30),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Tus datos están almacenados de forma segura mediante Supabase, cumpliendo con estándares de seguridad internacionales.',
+                      style: TextStyle(fontSize: 13, color: AppTheme.ink),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSection(String title, String content) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.ink)),
+          const SizedBox(height: 8),
+          Text(content, style: const TextStyle(fontSize: 14, height: 1.5, color: Color(0xff555555))),
+        ],
+      ),
+    );
+  }
+}
+
+class SupportTicketView extends StatefulWidget {
+  const SupportTicketView({super.key, required this.userEmail});
+  final String userEmail;
+
+  @override
+  State<SupportTicketView> createState() => _SupportTicketViewState();
+}
+
+class _SupportTicketViewState extends State<SupportTicketView> {
+  final _controller = TextEditingController();
+  bool _isLoading = false;
+
+  Future<void> _submitTicket() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      await Supabase.instance.client.from('support_tickets').insert({
+        'user_id': user?.id,
+        'email': widget.userEmail.isNotEmpty ? widget.userEmail : (user?.email ?? 'Invitado'),
+        'message': text,
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Mensaje enviado a soporte correctamente. ¡Gracias!')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al enviar: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Ayuda y Soporte', style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '¿En qué podemos ayudarte?',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppTheme.ink),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Describe tu problema, duda o sugerencia. El equipo de Radar Kochala lo revisará lo antes posible.',
+              style: TextStyle(color: Color(0xff668080), fontSize: 14),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _controller,
+              maxLines: 6,
+              decoration: InputDecoration(
+                hintText: 'Escribe tu mensaje aquí...',
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Color(0xffe1e9e6)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Color(0xffe1e9e6)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: FilledButton(
+                onPressed: _isLoading ? null : _submitTicket,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.teal,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                child: _isLoading 
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Enviar Mensaje', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'core/theme/app_theme.dart';
 import 'controllers/report_controller.dart'; 
 import 'views/role/role_selection_view.dart';
@@ -9,7 +10,7 @@ import 'views/home/home_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: ".env");
+  await dotenv.load(fileName: "env.txt");
 
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL'] ?? '',
@@ -35,6 +36,53 @@ class BachesCochaApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: const RoleSelectionView(),
+      builder: (context, child) {
+        return StreamBuilder<List<ConnectivityResult>>(
+          stream: Connectivity().onConnectivityChanged,
+          builder: (context, snapshot) {
+            // Evaluamos si el último dato del stream indica falta de red
+            final isOffline = snapshot.hasData && 
+                snapshot.data!.contains(ConnectivityResult.none);
+                
+            return Directionality(
+              textDirection: TextDirection.ltr,
+              child: Column(
+                children: [
+                  if (isOffline)
+                    Material(
+                      color: const Color(0xffd9684b), // Rojo suave para offline
+                      child: const SafeArea(
+                        bottom: false,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 4),
+                          child: Center(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.wifi_off, color: Colors.white, size: 14),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Modo Offline - Funciones limitadas',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.white, 
+                                    fontSize: 12, 
+                                    fontWeight: FontWeight.bold
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  Expanded(child: child ?? const SizedBox.shrink()),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

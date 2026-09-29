@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart'; // kIsWeb, Uint8List
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/ai_validation_service.dart';
 import '../../data/models/report.dart';
@@ -182,6 +183,7 @@ class _NewReportViewState extends State<NewReportView> {
             TextField(
               controller: _description,
               maxLines: 5,
+              maxLength: 500,
               decoration: InputDecoration(
                 hintText: 'Cuéntanos qué ocurre y dónde...',
                 filled: true,
@@ -221,6 +223,26 @@ class _NewReportViewState extends State<NewReportView> {
     }
 
     if (!mounted) return;
+
+    // --- VERIFICAR CONEXIÓN RÁPIDAMENTE ---
+    final connectivityResult = await Connectivity().checkConnectivity();
+    final isOffline = (connectivityResult as List).contains(ConnectivityResult.none);
+
+    if (isOffline) {
+      if (mounted) {
+        final draft = ReportDraft(
+          category: _category,
+          description: _description.text.trim(),
+          severity: _severity,
+          imageUrl: kIsWeb ? null : _imagePath,
+          imageBytes: kIsWeb ? _imageBytes?.toList() : null,
+          isAiVerified: false,
+        );
+        Navigator.pop(context, draft);
+      }
+      return; // Salimos temprano para evitar que se cuelgue buscando la red
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
