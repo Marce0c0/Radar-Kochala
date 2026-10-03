@@ -22,13 +22,34 @@ class AiValidationService {
     final model = _getModel();
     if (model == null) throw Exception('API Key no configurada');
 
+    String specificInstructions = '';
+    switch (categoryName.toLowerCase()) {
+      case 'bache':
+        specificInstructions = 'Debes ver un agujero, asfalto roto o hundimiento en la calle/pista. ';
+        break;
+      case 'basura':
+        specificInstructions = 'Debes ver acumulación de residuos, bolsas de basura, o suciedad en un área pública (calle, acera, parque). ';
+        break;
+      case 'iluminación':
+      case 'iluminacion':
+        specificInstructions = 'Debes ver un poste de luz, farol, cables en la calle o una zona oscura que debería estar iluminada. ';
+        break;
+      case 'espacio público':
+      case 'espacio publico':
+        specificInstructions = 'Debes ver bancas rotas, parques descuidados, aceras bloqueadas, o mobiliario urbano dañado. ';
+        break;
+      default:
+        specificInstructions = 'Debes verificar que la imagen corresponda a un problema en el entorno urbano (calle, acera, parque). ';
+    }
+
     final prompt = TextPart(
-      'Eres un inspector municipal. El usuario quiere reportar la categoría: '
-      '"$categoryName". Analiza la imagen. Si la imagen realmente '
-      'muestra ese problema urbano en la calle, responde EXACTAMENTE con la '
-      'palabra "VALIDO". Si es una foto falsa, un meme, una persona, una '
-      'habitación interior, o no tiene nada que ver con el problema, responde '
-      'EXACTAMENTE con la palabra "INVALIDO".',
+      'Eres un inspector municipal de la ciudad. El usuario quiere reportar un problema de la categoría: '
+      '"$categoryName". Tu trabajo es evitar el fraude y los reportes basura.\n\n'
+      'INSTRUCCIONES ESPECÍFICAS PARA ESTA CATEGORÍA: $specificInstructions\n\n'
+      'Analiza detenidamente la imagen. \n'
+      '- Si la imagen cumple con lo descrito y muestra un problema genuino en la calle/exterior, responde EXACTAMENTE con la palabra "VALIDO".\n'
+      '- Si es una foto falsa, un meme, una selfie, una habitación interior de una casa, un animal mascota, o si NO tiene NADA que ver con la categoría "$categoryName", responde EXACTAMENTE con la palabra "INVALIDO".\n\n'
+      'SOLO RESPONDE CON UNA PALABRA.'
     );
     final imagePart = DataPart('image/jpeg', imageBytes);
 

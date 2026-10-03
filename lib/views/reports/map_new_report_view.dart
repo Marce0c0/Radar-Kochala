@@ -114,6 +114,46 @@ class _MapNewReportViewState extends State<MapNewReportView> {
     );
   }
 
+  
+  void _showFullscreenImage(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      builder: (c) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            InteractiveViewer(
+              maxScale: 4.0,
+              child: SizedBox(
+                width: MediaQuery.of(context).size.width,
+                height: MediaQuery.of(context).size.height,
+                child: Image.network(
+                  url,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.image_not_supported,
+                    color: Colors.white,
+                    size: 50,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                onPressed: () => Navigator.pop(c),
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
@@ -358,6 +398,7 @@ class _MapNewReportViewState extends State<MapNewReportView> {
                         final dup = nearby[index] as Map<String, dynamic>;
                         final distMeters = (dup['distance_meters'] as num).round();
                         final imageUrl = dup['image_url'] as String?;
+                        final resolvedImageUrl = dup['resolved_image_url'] as String?;
                         final desc = dup['description']?.toString() ?? 'Sin descripción';
                         final status = dup['status']?.toString() ?? '';
                         return Container(
@@ -373,9 +414,23 @@ class _MapNewReportViewState extends State<MapNewReportView> {
                             children: [
                               ClipRRect(
                                 borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-                                child: imageUrl != null
-                                    ? Image.network(imageUrl, height: 70, width: 140, fit: BoxFit.cover)
-                                    : Container(height: 70, width: 140, color: Colors.grey.shade300, child: const Icon(Icons.image_not_supported)),
+                                child: resolvedImageUrl != null && resolvedImageUrl.isNotEmpty 
+                                   ? Row(
+                                       children: [
+                                          Expanded(child: GestureDetector(
+                                            onTap: () => imageUrl != null ? _showFullscreenImage(context, imageUrl) : null,
+                                            child: imageUrl != null ? Image.network(imageUrl, height: 70, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.image_not_supported)) : Container(height: 70, color: Colors.grey.shade300, child: const Icon(Icons.image_not_supported)))),
+                                          const SizedBox(width: 2),
+                                          Expanded(child: GestureDetector(
+                                            onTap: () => _showFullscreenImage(context, resolvedImageUrl),
+                                            child: Image.network(resolvedImageUrl, height: 70, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.image_not_supported)))),
+                                       ],
+                                     )
+                                   : imageUrl != null
+                                     ? GestureDetector(
+                                         onTap: () => _showFullscreenImage(context, imageUrl),
+                                         child: Image.network(imageUrl, height: 70, width: 140, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.image_not_supported)))
+                                     : Container(height: 70, width: 140, color: Colors.grey.shade300, child: const Icon(Icons.image_not_supported)),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(8.0),

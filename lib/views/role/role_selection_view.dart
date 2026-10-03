@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/app_theme.dart';
 import '../auth/register_view.dart';
@@ -56,6 +57,21 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
         case 'admin':
         case 'superadmin':
           _open(const AdminDashboardView());
+        case 'desactivado':
+          await Supabase.instance.client.auth.signOut();
+          if (mounted) {
+            setState(() {
+              _activeSession = null;
+              _isLoading = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Tu cuenta ha sido desactivada y archivada.'),
+                backgroundColor: Colors.red,
+              )
+            );
+          }
+          return;
         default:
           // ciudadano o rol no reconocido → HomeView
           _open(const HomeView());
@@ -136,6 +152,7 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
     // Si hay una sesión activa, mostramos una pantalla de bienvenida para continuar
     if (_activeSession != null) {
       final email = _activeSession!.user.email ?? 'Usuario';
+      final displayName = email.isNotEmpty ? email.split('@').first.replaceAll('.', ' ').replaceAll('_', ' ').split(' ').map((s) => s.isNotEmpty ? '${s[0].toUpperCase()}${s.substring(1)}' : '').join(' ') : 'Usuario';
       return Scaffold(
         body: SafeArea(
           child: Center(
@@ -144,19 +161,13 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: AppTheme.teal.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.account_circle, color: AppTheme.teal, size: 50),
-                  ),
+                  SizedBox(height: 100, child: Center(child: Image.asset('assets/logo_cochabamba.png', height: 100, fit: BoxFit.contain))),
                   const SizedBox(height: 24),
                   const Text('¡Hola de nuevo!', style: TextStyle(fontSize: 22, color: Colors.grey, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Text(email, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppTheme.ink), textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  Text(displayName, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppTheme.teal), textAlign: TextAlign.center),
+                  const SizedBox(height: 4),
+                  Text(email, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey), textAlign: TextAlign.center),
                   const SizedBox(height: 40),
                   if (_isLoading)
                     const CircularProgressIndicator(color: AppTheme.teal)
@@ -207,23 +218,26 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 68,
-                    height: 68,
-                    decoration: const BoxDecoration(
-                        color: AppTheme.teal, shape: BoxShape.circle),
-                    child: const Icon(Icons.location_city,
-                        color: Colors.white, size: 36),
-                  ),
+                  SizedBox(height: 120, child: Center(child: Image.asset('assets/logo_cochabamba.png', height: 120, fit: BoxFit.contain))),
                   const SizedBox(height: 16),
-                  const Text('Radar Kochala',
-                      style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          color: AppTheme.ink)),
+                  Text(
+                    'Radar Kochala',
+                    style: GoogleFonts.inter(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.ink,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
                   const SizedBox(height: 6),
-                  const Text('Inicia sesión para continuar',
-                      style: TextStyle(color: Color(0xff78908d))),
+                  Text(
+                    'Inicia sesión para continuar',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: AppTheme.textMuted,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
                   const SizedBox(height: 35),
                   TextField(
                     controller: _emailCtrl,
@@ -266,36 +280,30 @@ class _RoleSelectionViewState extends State<RoleSelectionView> {
                   else ...[
                     SizedBox(
                       width: double.infinity,
-                      height: 50,
                       child: FilledButton(
                         onPressed: _signIn,
-                        style: FilledButton.styleFrom(
-                            backgroundColor: AppTheme.teal,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14))),
-                        child: const Text('Iniciar sesión',
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold)),
+                        child: Text(
+                          'Iniciar sesión',
+                          style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
-                      height: 50,
                       child: OutlinedButton(
                         onPressed: () => Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const RegisterView()),
                         ),
-                        style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppTheme.teal),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14))),
-                        child: const Text('Crear cuenta',
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.teal)),
+                        child: Text(
+                          'Crear cuenta',
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.teal,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),

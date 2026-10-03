@@ -215,6 +215,30 @@ class _MapExploreViewState extends State<MapExploreView> {
               color: isGuest ? const Color(0xffd9684b) : const Color(0xff668080)),
         ),
         const SizedBox(height: 16),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              ChoiceChip(
+                label: const Text('Todos'),
+                selected: controller.filter == null,
+                onSelected: (_) => controller.setFilter(null),
+                selectedColor: AppTheme.teal.withValues(alpha: 0.2),
+              ),
+              const SizedBox(width: 8),
+              ...ReportCategory.values.map((cat) => Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: ChoiceChip(
+                  label: Text(categoryName(cat)),
+                  selected: controller.filter == cat,
+                  onSelected: (_) => controller.setFilter(cat),
+                  selectedColor: AppTheme.teal.withValues(alpha: 0.2),
+                ),
+              )),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
         ClipRRect(
           borderRadius: BorderRadius.circular(22),
           child: SizedBox(
@@ -315,10 +339,28 @@ class _MapExploreViewState extends State<MapExploreView> {
                             point: _currentPosition!,
                             width: 60,
                             height: 60,
-                            child: const Icon(
-                              Icons.person_pin_circle,
-                              color: Colors.blue,
-                              size: 50,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.withValues(alpha: 0.25),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                Container(
+                                  width: 16,
+                                  height: 16,
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade600,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2.5),
+                                    boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -334,48 +376,36 @@ class _MapExploreViewState extends State<MapExploreView> {
                     children: [
                       FilterChip(
                         label: const Text('Ocultar resueltos'),
-                        selected: controller.hideResolved,
-                        onSelected: (v) => controller.setHideResolved(v),
+                        selected: controller.hideResolved && controller.exploreMode != ExploreFilterMode.resueltos,
+                        onSelected: (v) {
+                          if (v) {
+                            controller.setExploreMode(ExploreFilterMode.recientes);
+                            controller.setHideResolved(true);
+                          } else {
+                            controller.setHideResolved(false);
+                          }
+                        },
                         backgroundColor: Colors.white,
-                        selectedColor: AppTheme.teal.withOpacity(0.2),
+                        selectedColor: AppTheme.teal.withValues(alpha: 0.2),
                         checkmarkColor: AppTheme.teal,
                         elevation: 4,
                       ),
-                      PopupMenuButton<ReportCategory?>(
-                        initialValue: controller.filter,
-                        onSelected: (value) => controller.setFilter(value),
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: null,
-                            child: Text('Todas las categorias'),
-                          ),
-                          const PopupMenuDivider(),
-                          ...ReportCategory.values.map(
-                            (c) => PopupMenuItem(
-                              value: c,
-                              child: Text(categoryName(c)),
-                            ),
-                          ),
-                        ],
-                        child: Material(
-                          elevation: 4,
-                          borderRadius: BorderRadius.circular(30),
-                          color: Colors.white,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.filter_list, color: AppTheme.teal, size: 20),
-                                const SizedBox(width: 8),
-                                Text(
-                                  controller.filter == null ? 'Filtrar' : categoryName(controller.filter!),
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                      const SizedBox(width: 8),
+                      FilterChip(
+                        label: const Text('Solo resueltos'),
+                        selected: controller.exploreMode == ExploreFilterMode.resueltos,
+                        onSelected: (v) {
+                          if (v) {
+                            controller.setExploreMode(ExploreFilterMode.resueltos);
+                            controller.setHideResolved(false);
+                          } else {
+                            controller.setExploreMode(ExploreFilterMode.recientes);
+                          }
+                        },
+                        backgroundColor: Colors.white,
+                        selectedColor: AppTheme.teal.withValues(alpha: 0.2),
+                        checkmarkColor: AppTheme.teal,
+                        elevation: 4,
                       ),
                     ],
                   ),
@@ -433,16 +463,33 @@ class _MapExploreViewState extends State<MapExploreView> {
           ),
         ),
         const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: () {
-            LatLng center = _cochabamba;
-            try {
-              center = _mapController.camera.center;
-            } catch (_) {}
-            _addReport(context, center);
-          },
-          icon: const Icon(Icons.add_location_alt_outlined),
-          label: const Text('Añadir reporte en el mapa'),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppTheme.tealSoft,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.teal.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.touch_app, color: AppTheme.tealDeep, size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Toca cualquier punto en el mapa para reportar un problema en esa ubicación exacta.',
+                    style: TextStyle(
+                      color: AppTheme.tealDeep,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
         const SizedBox(height: 20),
         const Text('Reportes cercanos',
@@ -451,16 +498,67 @@ class _MapExploreViewState extends State<MapExploreView> {
                 fontWeight: FontWeight.w800,
                 color: AppTheme.ink)),
         const SizedBox(height: 10),
-        ...reports.take(4).map(
-              (report) => ReportCard(
-                report: report,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => DetailView(report: report)),
+        if (_currentPosition == null)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+            child: Column(
+              children: [
+                const Icon(Icons.location_off, color: Colors.orange, size: 32),
+                const SizedBox(height: 8),
+                const Text('Activa tu GPS para ver los reportes más cercanos a ti.', textAlign: TextAlign.center, style: TextStyle(color: Colors.deepOrange)),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  icon: const Icon(Icons.gps_fixed),
+                  label: const Text('Activar Ubicación'),
+                  onPressed: _iniciarRastreoGPS,
                 ),
-              ),
+              ],
             ),
+          )
+        else
+          ...() {
+              final nearbyReports = reports.where((r) {
+                  if (r.latitude == null || r.longitude == null) return false;
+                  final d = Geolocator.distanceBetween(_currentPosition!.latitude, _currentPosition!.longitude, r.latitude!, r.longitude!);
+                  return d <= 150.0; // Mismo umbral que check_nearby_reports (duplicados)
+              }).toList();
+              
+              if (nearbyReports.isEmpty) {
+                  return [
+                      Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
+                          child: const Column(
+                              children: [
+                                  Icon(Icons.radar, color: Colors.grey, size: 32),
+                                  SizedBox(height: 8),
+                                  Text('Todo tranquilo en tu zona.', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                                  Text('No hay ningún reporte a menos de 150 metros de ti.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              ]
+                          )
+                      )
+                  ];
+              }
+
+              nearbyReports.sort((a, b) {
+                final dA = Geolocator.distanceBetween(_currentPosition!.latitude, _currentPosition!.longitude, a.latitude!, a.longitude!);
+                final dB = Geolocator.distanceBetween(_currentPosition!.latitude, _currentPosition!.longitude, b.latitude!, b.longitude!);
+                return dA.compareTo(dB);
+              });
+              
+              return nearbyReports.take(4).map<Widget>(
+                (report) => ReportCard(
+                  report: report,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => DetailView(report: report)),
+                  ),
+                ),
+              ).toList();
+        }(),
       ],
     );
   }

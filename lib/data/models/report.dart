@@ -70,6 +70,7 @@ class Report {
     this.longitude,
     this.imageUrl,
     this.resolvedImageUrl,
+    this.resolutionDetail,
     this.authorId,
     this.upvotes = 0,
     this.isMine = false,
@@ -89,6 +90,7 @@ class Report {
   final double? longitude;
   final String? imageUrl;
   final String? resolvedImageUrl;
+  final String? resolutionDetail;
   final String? authorId;
   final int upvotes;
   final bool isMine;
@@ -121,6 +123,7 @@ class Report {
       longitude: (data['longitude'] as num?)?.toDouble(),
       imageUrl: data['image_url'] as String?,
       resolvedImageUrl: data['resolved_image_url'] as String?,
+      resolutionDetail: data['resolution_detail'] as String?,
       authorId: data['author_id'] as String?,
       upvotes: data['upvotes'] ?? 0,
       isMine: currentUserId != null && currentUserId == data['author_id'],
@@ -144,6 +147,7 @@ class Report {
       longitude: longitude,
       imageUrl: imageUrl,
       resolvedImageUrl: resolvedImageUrl,
+      resolutionDetail: resolutionDetail ?? this.resolutionDetail,
       authorId: authorId,
       upvotes: upvotes ?? this.upvotes,
       isMine: isMine,
@@ -294,5 +298,10 @@ List<ReportUpdate> updatesFor(Report report) => [
         note: 'Cuadrilla trabajando en el lugar.',
         completed: report.status == ReportStatus.inProgress ||
             report.status == ReportStatus.resolved,
+      ),
+      ReportUpdate(
+        title: 'Trabajo finalizado',
+        note: 'Problema solucionado por el personal de la alcaldía.',
+        completed: report.status == ReportStatus.resolved,
       ),
     ];

@@ -38,7 +38,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ranking Ciudadano', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.ink)),
+        title: const Text('Top 20 Usuarios Contribuyentes Anuales', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.ink)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,

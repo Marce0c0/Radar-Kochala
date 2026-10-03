@@ -47,49 +47,43 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
         ],
       ),
-      body: Row(
-        children: [
-          // Navigation Rail
-          NavigationRail(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: (int index) {
-              setState(() {
-                _selectedIndex = index;
-              });
-            },
-            labelType: NavigationRailLabelType.all,
-            selectedIconTheme: const IconThemeData(color: AppTheme.teal),
-            selectedLabelTextStyle: const TextStyle(color: AppTheme.teal, fontWeight: FontWeight.bold),
-            destinations: const [
-              NavigationRailDestination(
-                icon: Icon(Icons.dashboard_outlined),
-                selectedIcon: Icon(Icons.dashboard),
-                label: Text('Métricas'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.map_outlined),
-                selectedIcon: Icon(Icons.map),
-                label: Text('Mapa'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.people_outline),
-                selectedIcon: Icon(Icons.people),
-                label: Text('Personal'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.list_alt),
-                selectedIcon: Icon(Icons.list),
-                label: Text('Reportes'),
-              ),
-            ],
-          ),
-          const VerticalDivider(thickness: 1, width: 1),
-          // Main Content
-          Expanded(
-            child: _buildBody(),
-          ),
-        ],
-      ),
+      bottomNavigationBar: MediaQuery.of(context).size.width < 800
+          ? NavigationBar(
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: (index) => setState(() => _selectedIndex = index),
+              destinations: const [
+                NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Métricas'),
+                NavigationDestination(icon: Icon(Icons.map_outlined), selectedIcon: Icon(Icons.map), label: 'Mapa'),
+                NavigationDestination(icon: Icon(Icons.people_outline), selectedIcon: Icon(Icons.people), label: 'Personal'),
+                NavigationDestination(icon: Icon(Icons.list_alt), selectedIcon: Icon(Icons.list), label: 'Reportes'),
+              ],
+            )
+          : null,
+      body: MediaQuery.of(context).size.width < 800
+          ? _buildBody()
+          : Row(
+              children: [
+                NavigationRail(
+                  leading: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Image.asset('assets/logo_cochabamba.png', height: 50),
+                  ),
+                  selectedIndex: _selectedIndex,
+                  onDestinationSelected: (int index) => setState(() => _selectedIndex = index),
+                  labelType: NavigationRailLabelType.all,
+                  selectedIconTheme: const IconThemeData(color: AppTheme.teal),
+                  selectedLabelTextStyle: const TextStyle(color: AppTheme.teal, fontWeight: FontWeight.bold),
+                  destinations: const [
+                    NavigationRailDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: Text('Métricas')),
+                    NavigationRailDestination(icon: Icon(Icons.map_outlined), selectedIcon: Icon(Icons.map), label: Text('Mapa')),
+                    NavigationRailDestination(icon: Icon(Icons.people_outline), selectedIcon: Icon(Icons.people), label: Text('Personal')),
+                    NavigationRailDestination(icon: Icon(Icons.list_alt), selectedIcon: Icon(Icons.list), label: Text('Reportes')),
+                  ],
+                ),
+                const VerticalDivider(thickness: 1, width: 1),
+                Expanded(child: _buildBody()),
+              ],
+            ),
     );
   }
 
@@ -483,7 +477,7 @@ class _MapTab extends StatefulWidget {
 }
 
 class _MapTabState extends State<_MapTab> {
-  int _mapMode = 0; // 0 = Puntos de Calor, 1 = Vista Ciudadana
+  int _mapMode = 1; // 0 = Puntos de Calor, 1 = Vista Ciudadana
 
     Color _getStatusRingColor(ReportStatus status) {
     switch (status) {
@@ -500,34 +494,55 @@ class _MapTabState extends State<_MapTab> {
       children: [
         Padding(
           padding: const EdgeInsets.all(16.0),
-          child: SegmentedButton<int>(
-            segments: const [
-              ButtonSegment(
-                value: 0,
-                label: Text('Puntos de Calor'),
-                icon: Icon(Icons.blur_on),
+          child: Row(
+            children: [
+              Expanded(
+                child: SegmentedButton<int>(
+                  segments: const [
+                    ButtonSegment(
+                      value: 0,
+                      label: Text('Puntos de Calor'),
+                      icon: Icon(Icons.blur_on),
+                    ),
+                    ButtonSegment(
+                      value: 1,
+                      label: Text('Vista Ciudadana'),
+                      icon: Icon(Icons.pin_drop),
+                    ),
+                  ],
+                  selected: {_mapMode},
+                  onSelectionChanged: (Set<int> newSelection) {
+                    setState(() {
+                      _mapMode = newSelection.first;
+                    });
+                  },
+                ),
               ),
-              ButtonSegment(
-                value: 1,
-                label: Text('Vista Ciudadana'),
-                icon: Icon(Icons.pin_drop),
+              const SizedBox(width: 16),
+              Consumer<ReportController>(
+                builder: (context, controller, child) {
+                  return FilterChip(
+                    label: const Text('Ocultar resueltos'),
+                    selected: controller.hideResolved,
+                    onSelected: (v) => controller.setHideResolved(v),
+                    backgroundColor: Colors.white,
+                    selectedColor: AppTheme.teal.withOpacity(0.2),
+                    checkmarkColor: AppTheme.teal,
+                  );
+                }
               ),
             ],
-            selected: {_mapMode},
-            onSelectionChanged: (Set<int> newSelection) {
-              setState(() {
-                _mapMode = newSelection.first;
-              });
-            },
           ),
         ),
         Expanded(
           child: Consumer<ReportController>(
             builder: (context, controller, child) {
-              final reports = controller.reports.where((r) => r.latitude != null && r.longitude != null).toList();
+              final reports = controller.visibleReports.where((r) => r.latitude != null && r.longitude != null).toList();
               
               return FlutterMap(
-                options: const MapOptions(
+                options: MapOptions(
+              cameraConstraint: CameraConstraint.contain(bounds: LatLngBounds(const LatLng(-17.50, -66.25), const LatLng(-17.30, -66.05))),
+
                   initialCenter: LatLng(-17.3935, -66.1570), // Cochabamba
                   initialZoom: 13,
                 ),
@@ -627,9 +642,13 @@ class _StaffTab extends StatefulWidget {
   State<_StaffTab> createState() => _StaffTabState();
 }
 
-class _StaffTabState extends State<_StaffTab> {
+class _StaffTabState extends State<_StaffTab> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+
 
   Future<void> _crearNuevoTrabajador() async {
+    final nameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final passCtrl = TextEditingController();
     String selectedRole = 'trabajador';
@@ -645,6 +664,11 @@ class _StaffTabState extends State<_StaffTab> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Nombre Completo'),
+                  keyboardType: TextInputType.name,
+                ),
+                TextField(
                   controller: emailCtrl,
                   decoration: const InputDecoration(labelText: 'Correo Institucional'),
                   keyboardType: TextInputType.emailAddress,
@@ -658,8 +682,9 @@ class _StaffTabState extends State<_StaffTab> {
                 DropdownButtonFormField<String>(
                   value: selectedRole,
                   items: const [
-                    DropdownMenuItem(value: 'trabajador', child: Text('Trabajador')),
                     DropdownMenuItem(value: 'admin', child: Text('Administrador')),
+                    DropdownMenuItem(value: 'operador', child: Text('Operador')),
+                    DropdownMenuItem(value: 'trabajador', child: Text('Trabajador de Campo')),
                   ],
                   onChanged: (v) => setStateDialog(() => selectedRole = v!),
                   decoration: const InputDecoration(labelText: 'Rol'),
@@ -696,7 +721,7 @@ class _StaffTabState extends State<_StaffTab> {
                       
                       await Supabase.instance.client
                           .from('profiles')
-                          .update({'role': selectedRole})
+                          .update({'role': selectedRole, 'full_name': nameCtrl.text.trim()})
                           .eq('id', userId);
                       
                       if (ctx.mounted) Navigator.pop(ctx);
@@ -721,17 +746,23 @@ class _StaffTabState extends State<_StaffTab> {
     );
   }
   final SupabaseClient _supabase = Supabase.instance.client;
-  final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _staffSearchController = TextEditingController();
+  String _staffSearchQuery = '';
   
   List<Map<String, dynamic>> _activeStaff = [];
-  Map<String, dynamic>? _searchedUser;
   bool _loading = true;
-  bool _searching = false;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 4, vsync: this);
     _loadStaff();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadStaff() async {
@@ -740,7 +771,7 @@ class _StaffTabState extends State<_StaffTab> {
       final data = await _supabase
           .from('profiles')
           .select()
-          .neq('role', 'ciudadano')
+          .inFilter('role', ['admin', 'operador', 'trabajador', 'desactivado'])
           .order('role', ascending: true);
       setState(() => _activeStaff = List<Map<String, dynamic>>.from(data));
     } catch (e) {
@@ -750,37 +781,9 @@ class _StaffTabState extends State<_StaffTab> {
     }
   }
 
-  Future<void> _searchUser() async {
-    final query = _searchController.text.trim();
-    if (query.isEmpty) return;
-    
-    setState(() {
-      _searching = true;
-      _searchedUser = null;
-    });
-    
-    try {
-      final data = await _supabase
-          .from('profiles')
-          .select()
-          .eq('role', 'ciudadano')
-          .ilike('email', '%$query%')
-          .limit(1)
-          .maybeSingle();
-          
-      setState(() => _searchedUser = data);
-    } catch (e) {
-      debugPrint('Error searching user: $e');
-    } finally {
-      if (mounted) setState(() => _searching = false);
-    }
-  }
-
   Future<void> _updateRole(String id, String newRole) async {
     try {
       await _supabase.from('profiles').update({'role': newRole}).eq('id', id);
-      _searchController.clear();
-      setState(() => _searchedUser = null);
       _loadStaff();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Rol actualizado a $newRole exitosamente')));
@@ -800,105 +803,135 @@ class _StaffTabState extends State<_StaffTab> {
         const Text('Gestión de Personal', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.ink)),
         const SizedBox(height: 24),
         
-        // Buscador
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xffe1e9e6)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Promover a un Ciudadano', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: const InputDecoration(
-                        hintText: 'Buscar por correo electrónico (ej. juan@gmail.com)',
-                        prefixIcon: Icon(Icons.search),
-                        border: OutlineInputBorder(),
-                      ),
-                      onSubmitted: (_) => _searchUser(),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  FilledButton(
-                    onPressed: _searching ? null : _searchUser,
-                    child: _searching ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Buscar'),
-                  ),
-                ],
-              ),
-              if (_searchedUser != null) ...[
-                const SizedBox(height: 16),
-                ListTile(
-                  tileColor: const Color(0xfff5f7f6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  leading: const CircleAvatar(child: Icon(Icons.person)),
-                  title: Text(_searchedUser!['email'] ?? 'Sin correo'),
-                  subtitle: const Text('Rol actual: Ciudadano'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextButton(onPressed: () => _updateRole(_searchedUser!['id'], 'operador'), child: const Text('Hacer Operador')),
-                      TextButton(onPressed: () => _updateRole(_searchedUser!['id'], 'trabajador'), child: const Text('Hacer Trabajador')),
-                    ],
-                  ),
-                ),
-              ],
-              if (_searchedUser == null && _searchController.text.isNotEmpty && !_searching) ...[
-                const SizedBox(height: 16),
-                const Text('No se encontró ningún ciudadano con ese correo.', style: TextStyle(color: Colors.red)),
-              ]
-            ],
-          ),
-        ),
-        
         const SizedBox(height: 32),
-        const Text('Personal Activo', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Personal Activo', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            FilledButton.icon(
+              onPressed: _crearNuevoTrabajador,
+              icon: const Icon(Icons.person_add),
+              label: const Text('Registrar Nuevo'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        
+        TextField(
+          controller: _staffSearchController,
+          decoration: const InputDecoration(
+            hintText: 'Buscar personal por nombre o correo...',
+            prefixIcon: Icon(Icons.search),
+            border: OutlineInputBorder(),
+          ),
+          onChanged: (v) => setState(() => _staffSearchQuery = v.trim().toLowerCase()),
+        ),
         const SizedBox(height: 16),
         
         if (_loading) 
           const Center(child: CircularProgressIndicator())
         else if (_activeStaff.isEmpty)
           const Text('No hay personal activo.', style: TextStyle(color: Colors.grey))
-        else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _activeStaff.length,
-            itemBuilder: (context, index) {
-              final user = _activeStaff[index];
-              return Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: const BorderSide(color: Color(0xffe1e9e6)),
-                ),
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: user['role'] == 'admin' ? Colors.red.shade100 : AppTheme.teal.withValues(alpha: 0.2),
-                    child: Icon(
-                      user['role'] == 'admin' ? Icons.admin_panel_settings : Icons.badge,
-                      color: user['role'] == 'admin' ? Colors.red : AppTheme.teal,
-                    ),
-                  ),
-                  title: Text(user['email'] ?? 'Sin correo', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('Rol: ${user['role'].toString().toUpperCase()}'),
-                  trailing: user['role'] == 'admin' ? null : TextButton(
-                    onPressed: () => _updateRole(user['id'], 'ciudadano'),
-                    child: const Text('Revocar Acceso', style: TextStyle(color: Colors.red)),
-                  ),
-                ),
-              );
-            },
+        else ...[
+          TabBar(
+            controller: _tabController,
+            labelColor: AppTheme.teal,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: AppTheme.teal,
+            tabs: const [
+              Tab(text: 'Admins'),
+              Tab(text: 'Operadores'),
+              Tab(text: 'Trabajadores'),
+              Tab(text: 'Archivados'),
+            ],
           ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 400, // Alto fijo para que no rompa el scroll
+            child: TabBarView(
+              controller: _tabController,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                _buildRoleList('admin'),
+                _buildRoleList('operador'),
+                _buildRoleList('trabajador'),
+                _buildRoleList('desactivado'),
+              ],
+            ),
+          ),
+        ]
       ],
+    );
+  }
+
+  Widget _buildRoleList(String role) {
+    final roleUsers = _activeStaff.where((u) {
+      if (u['role'] != role) return false;
+      if (_staffSearchQuery.isEmpty) return true;
+      final name = (u['full_name'] ?? '').toLowerCase();
+      final email = (u['email'] ?? '').toLowerCase();
+      return name.contains(_staffSearchQuery) || email.contains(_staffSearchQuery);
+    }).toList();
+    if (roleUsers.isEmpty) {
+      final emptyMessage = role == 'desactivado' 
+          ? 'No hay personas archivadas' 
+          : 'No hay personal con este rol';
+      return Center(child: Text(emptyMessage, style: const TextStyle(color: Colors.grey)));
+    }
+    return ListView.builder(
+      itemCount: roleUsers.length,
+      itemBuilder: (context, index) {
+        final user = roleUsers[index];
+        return Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0xffe1e9e6)),
+          ),
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: role == 'admin' ? Colors.red.shade100 : AppTheme.teal.withValues(alpha: 0.2),
+              child: Icon(
+                role == 'admin' ? Icons.admin_panel_settings : Icons.badge,
+                color: role == 'admin' ? Colors.red : AppTheme.teal,
+              ),
+            ),
+            title: Text(user['full_name'] ?? 'Sin nombre', style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(user['email'] ?? 'Sin correo', style: const TextStyle(color: Colors.grey)),
+                const SizedBox(height: 4),
+                Text('Rol: ' + user['role'].toString().toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w500)),
+              ],
+            ),
+            trailing: role == 'admin' ? null : TextButton(
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('¿Estás seguro?'),
+                    content: Text('Estás a punto de revocar el acceso de ${user['full_name'] ?? user['email']}. Su cuenta será desactivada y archivada. Perderá todo acceso al sistema, pero mantendremos su historial.'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+                      FilledButton(
+                        style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Sí, Revocar'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  _updateRole(user['id'], 'desactivado');
+                }
+              },
+              child: const Text('Revocar Acceso', style: TextStyle(color: Colors.red)),
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/models/report.dart';
 import 'status_pill.dart';
@@ -13,6 +14,9 @@ class ReportCard extends StatefulWidget {
 }
 
 class _ReportCardState extends State<ReportCard> {
+  static final Map<String, int> _voteCountCache = {};
+  static final Map<String, bool> _votedCache = {};
+
   int _votes = 0;
   bool _voted = false;
   bool _votingLoading = false;
@@ -20,11 +24,18 @@ class _ReportCardState extends State<ReportCard> {
   @override
   void initState() {
     super.initState();
-    _loadVotes();
+    if (_voteCountCache.containsKey(widget.report.id)) {
+      _votes = _voteCountCache[widget.report.id]!;
+      _voted = _votedCache[widget.report.id] ?? false;
+    } else {
+      _loadVotes();
+    }
   }
 
   // Carga la cantidad de votos del reporte y si el usuario ya votó.
   Future<void> _loadVotes() async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
     try {
       final client = Supabase.instance.client;
       final result = await client
@@ -32,11 +43,16 @@ class _ReportCardState extends State<ReportCard> {
           .select('user_id')
           .eq('report_id', widget.report.id);
       final userId = client.auth.currentUser?.id;
+      final vCount = result.length;
+      final vDid = userId != null && result.any((v) => v['user_id'] == userId);
+      
+      _voteCountCache[widget.report.id] = vCount;
+      _votedCache[widget.report.id] = vDid;
+
       if (mounted) {
         setState(() {
-          _votes = result.length;
-          _voted = userId != null &&
-              result.any((v) => v['user_id'] == userId);
+          _votes = vCount;
+          _voted = vDid;
         });
       }
     } catch (_) {}
@@ -55,6 +71,8 @@ class _ReportCardState extends State<ReportCard> {
             .delete()
             .eq('report_id', widget.report.id)
             .eq('user_id', userId);
+        _voteCountCache[widget.report.id] = _votes - 1;
+        _votedCache[widget.report.id] = false;
         if (mounted) setState(() { _votes--; _voted = false; });
       } else {
         await client.from('votes').insert({
@@ -62,6 +80,8 @@ class _ReportCardState extends State<ReportCard> {
           'user_id': userId,
           'vote_value': 1,
         });
+        _voteCountCache[widget.report.id] = _votes + 1;
+        _votedCache[widget.report.id] = true;
         if (mounted) setState(() { _votes++; _voted = true; });
       }
     } catch (e) {
@@ -79,18 +99,21 @@ class _ReportCardState extends State<ReportCard> {
   Widget build(BuildContext context) {
     // STRATEGY: delegamos la resolución de icono y color al módulo centralizado.
     final color = categoryColor(widget.report.category);
-    return Card(
-      margin: const EdgeInsets.only(bottom: 11),
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: Color(0xffe1e9e6)),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBg,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+        border: Border.all(color: AppTheme.borderLight),
+        boxShadow: AppTheme.softShadow,
       ),
-      child: InkWell(
-        onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+          child: Padding(
           padding: const EdgeInsets.all(15),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,9 +137,10 @@ class _ReportCardState extends State<ReportCard> {
                         Expanded(
                           child: Text(
                             widget.report.title,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xff122b27)),
+                            style: AppTheme.headline3().copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                         const Icon(Icons.chevron_right,
@@ -195,6 +219,7 @@ class _ReportCardState extends State<ReportCard> {
               ),
             ],
           ),
+        ),
         ),
       ),
     );
