@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../controllers/report_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/report.dart';
+import '../notifications/notifications_view.dart';
 import '../map/map_explore_view.dart';
 import '../reports/detail_view.dart';
 import '../reports/new_report_view.dart';
@@ -139,9 +140,10 @@ class _ExploreView extends StatelessWidget {
       onRefresh: () => context.read<ReportController>().load(),
       child: NotificationListener<ScrollEndNotification>(
         onNotification: (scrollInfo) {
-          if (scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent - 200) {
-            context.read<ReportController>().loadMore();
-          }
+          // Infinite scroll disabled as per user request
+            // if (scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent - 200) {
+            //   context.read<ReportController>().loadMore();
+            // }
           return false;
         },
         child: ListView(
@@ -159,22 +161,38 @@ class _ExploreView extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 22),
-          const Text('Explora por categoría',
-              style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.ink)),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [null, ...ReportCategory.values]
-                .map((c) => ChoiceChip(
-                      label: Text(c == null ? 'Todos' : categoryName(c)),
-                      selected: controller.filter == c,
-                      onSelected: (_) => controller.setFilter(c),
-                    ))
-                .toList(),
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              initiallyExpanded: false,
+              title: Text(
+                  controller.filter == null 
+                    ? 'Explora por categoría' 
+                    : 'Filtro: ${categoryName(controller.filter!)}',
+                  style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.ink)),
+              children: [
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [null, ...ReportCategory.values]
+                        .map((c) => ChoiceChip(
+                              label: Text(c == null ? 'Todos' : categoryName(c)),
+                              selected: controller.filter == c,
+                              onSelected: (_) => controller.setFilter(c),
+                            ))
+                        .toList(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
           const SizedBox(height: 20),
           Row(
@@ -248,6 +266,22 @@ class _ExploreView extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.all(16.0),
               child: Center(child: CircularProgressIndicator()),
+            ),
+          if (controller.hasMore && !controller.loadingMore && controller.visibleReports.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0, bottom: 20.0),
+              child: Center(
+                child: OutlinedButton.icon(
+                  onPressed: () => context.read<ReportController>().loadMore(),
+                  icon: const Icon(Icons.expand_more),
+                  label: const Text('Ver más reportes'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.tealDeep,
+                    side: BorderSide(color: AppTheme.borderLight),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                ),
+              ),
             ),
         ],
       ),
@@ -365,6 +399,8 @@ class _WelcomeHeaderState extends State<_WelcomeHeader>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Image.asset('assets/logo_cochabamba.png', height: 40),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
@@ -390,9 +426,15 @@ class _WelcomeHeaderState extends State<_WelcomeHeader>
                   ),
                 ),
                 const SizedBox(width: 8),
-                const CircleAvatar(
-                  backgroundColor: Color(0xffd8eeea),
-                  child: Icon(Icons.location_city, color: AppTheme.teal),
+                Container(
+                  decoration: const BoxDecoration(
+                    color: Color(0xffd8eeea),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.notifications_none, color: AppTheme.teal),
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsView())),
+                  ),
                 ),
               ],
             );
@@ -468,9 +510,10 @@ class _MyReportsView extends StatelessWidget {
       onRefresh: () => context.read<ReportController>().load(),
       child: NotificationListener<ScrollEndNotification>(
         onNotification: (scrollInfo) {
-          if (scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent - 200) {
-            context.read<ReportController>().loadMore();
-          }
+          // Infinite scroll disabled as per user request
+            // if (scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent - 200) {
+            //   context.read<ReportController>().loadMore();
+            // }
           return false;
         },
         child: ListView(
@@ -556,6 +599,22 @@ class _MyReportsView extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.all(16.0),
               child: Center(child: CircularProgressIndicator()),
+            ),
+          if (controller.hasMore && !controller.loadingMore && controller.visibleReports.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0, bottom: 20.0),
+              child: Center(
+                child: OutlinedButton.icon(
+                  onPressed: () => context.read<ReportController>().loadMore(),
+                  icon: const Icon(Icons.expand_more),
+                  label: const Text('Ver más reportes'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.tealDeep,
+                    side: BorderSide(color: AppTheme.borderLight),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                ),
+              ),
             ),
         ],
       ),

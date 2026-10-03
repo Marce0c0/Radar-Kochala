@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../data/models/report.dart';
 import '../../core/theme/app_theme.dart';
 class StaffPageIntro extends StatelessWidget {
@@ -19,7 +20,7 @@ class StaffStatsRow extends StatelessWidget {
   const StaffStatsRow({super.key, required this.items});
   final List<(String, String)> items;
   @override
-  Widget build(BuildContext context) => Row(children: items.map((item) => Expanded(child: Container(margin: const EdgeInsets.only(right: 8), padding: const EdgeInsets.symmetric(vertical: 14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: const Color(0xffe1e9e6))), child: Column(children: [Text(item.$1, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppTheme.teal)), Text(item.$2, style: const TextStyle(fontSize: 10, color: Color(0xff78908d)))])))).toList());
+  Widget build(BuildContext context) => Row(children: items.map((item) => Expanded(child: Container(margin: const EdgeInsets.only(right: 8), padding: const EdgeInsets.symmetric(vertical: 14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: const Color(0xffe1e9e6))), child: Column(children: [Text(item.$1, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppTheme.teal)), Text(item.$2, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: Color(0xff78908d)))])))).toList());
 }
 
 class StaffReportTile extends StatelessWidget {
@@ -28,7 +29,13 @@ class StaffReportTile extends StatelessWidget {
   final String action;
   final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => Card(margin: const EdgeInsets.only(bottom: 10), child: ListTile(leading: const CircleAvatar(backgroundColor: Color(0xffdcebe6), child: Icon(Icons.report, color: AppTheme.teal)), title: Text(report.title, maxLines: 1), subtitle: Text('${report.neighborhood} · ${report.time}'), trailing: FilledButton(onPressed: onTap, child: Text(action))));
+  Widget build(BuildContext context) => Card(margin: const EdgeInsets.only(bottom: 10), child: ListTile(onTap: onTap, leading: CircleAvatar(backgroundColor: const Color(0xffdcebe6), child: Icon(
+      report.status == ReportStatus.resolved ? Icons.check_circle :
+      report.status == ReportStatus.inProgress ? Icons.handyman :
+      report.status == ReportStatus.reviewing ? Icons.assignment :
+      Icons.report, 
+      color: AppTheme.teal
+    )), title: Text(report.title, maxLines: 1), subtitle: Text('${report.neighborhood} • ${report.createdAt != null ? DateFormat("dd/MM/yyyy HH:mm:ss").format(report.createdAt!) : report.time}', style: const TextStyle(fontSize: 11)), trailing: const Icon(Icons.chevron_right, color: AppTheme.teal)));
 }
 
 class StaffSegmented extends StatelessWidget {

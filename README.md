@@ -1,3 +1,34 @@
+
+## 🚀 Últimas Actualizaciones (Octubre 2026)
+
+Se han implementado mejoras críticas en la estabilidad, datos de prueba y experiencia de usuario:
+
+- **Saneamiento de Base de Datos:** Limpieza de cuentas fantasma y estandarización del esquema de Autenticación de Supabase (GoTrue) para permitir la creación masiva de cuentas sin romper el login.
+- **Población de Datos Realistas:**
+  - Creación de **20 cuentas de ciudadanos** con nombres completos reales y puntos de ranking.
+  - Creación de **30 cuentas de trabajadores de campo** vinculadas correctamente al dominio institucional `@alcaldia.cbba`.
+  - Inyección de **25 reportes de prueba** totalmente realistas (con imágenes representativas de baches, luminarias, basura, etc. vía `loremflickr`), distribuidos entre los mejores ciudadanos y en estados pendientes/en proceso (listos para ser gestionados).
+- **Mejoras UI/UX:** 
+  - Título del ranking actualizado a "Top 20 Usuarios Contribuyentes Anuales".
+  - Se ha integrado un *Loader* (Animación de carga HTML/CSS puro) en `index.html` para eliminar la pantalla blanca durante el arranque inicial en la versión Web.
+
+---
+
+## 🔑 Credenciales de Prueba
+
+Para probar la plataforma en todos sus niveles, puedes utilizar las siguientes cuentas (todas comparten la misma contraseña):
+
+**Contraseña Universal:** `admin123`
+
+| Rol | Correo de Acceso | Descripción |
+| :--- | :--- | :--- |
+| **Administrador** | `admin@alcaldia.cbba` | Panel de control total, ABM de personal y estadísticas. |
+| **Operador** | `operador@alcaldia.cbba` | Verificación de reportes, mapas de calor y control de estado. |
+| **Trabajador** | `trabajador1.juan_perez@alcaldia.cbba` | Vista de campo, atención de casos y subida de reportes fotográficos de resolución. |
+| **Ciudadano** | `diego.salinas@gmail.com` | Reporte de problemas urbanos, seguimiento y visualización de ranking. |
+
+
+
 # 🏙️ Radar Kochala: Sistema de Gestión Cívica
 
 ![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white) ![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white) ![Dart](https://img.shields.io/badge/dart-%230175C2.svg?style=for-the-badge&logo=dart&logoColor=white) ![MVC](https://img.shields.io/badge/Patr%C3%B3n-MVC%20%2B%20Provider-orange?style=for-the-badge)

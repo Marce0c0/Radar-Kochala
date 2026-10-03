@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart'; // kIsWeb + debugPrint
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/report.dart';
+import '../../services/ai_validation_service.dart';
 
 // REPOSITORIO: Maneja el acceso a los datos en Supabase.
 class ReportRepository {
@@ -38,7 +39,46 @@ class ReportRepository {
     for (final item in queue) {
       try {
         final draftMap = jsonDecode(item);
-        final draft = ReportDraft.fromJson(draftMap);
+        var draft = ReportDraft.fromJson(draftMap);
+        
+        // CORRECCIÓN: Al recuperar conexión, si el reporte ciudadano no pasó por la IA, se valida ahora.
+        if (!draft.isAiVerified) {
+           Uint8List? bytesToValidate;
+           if (kIsWeb && draft.imageBytes != null) {
+              bytesToValidate = Uint8List.fromList(draft.imageBytes!);
+           } else if (!kIsWeb && draft.imageUrl != null) {
+              final file = File(draft.imageUrl!);
+              if (await file.exists()) bytesToValidate = await file.readAsBytes();
+           }
+
+           if (bytesToValidate != null) {
+              final val = await AiValidationService.validateLocalImage(bytesToValidate, categoryName(draft.category));
+              if (val.trim().toUpperCase().contains('INVALIDO')) {
+                 draft = ReportDraft(
+                   category: draft.category,
+                   description: '[Rechazado por IA Offline] ' + draft.description,
+                   severity: draft.severity,
+                   latitude: draft.latitude,
+                   longitude: draft.longitude,
+                   imageUrl: draft.imageUrl,
+                   imageBytes: draft.imageBytes,
+                   isAiVerified: false,
+                 );
+              } else {
+                 draft = ReportDraft(
+                   category: draft.category,
+                   description: draft.description,
+                   severity: draft.severity,
+                   latitude: draft.latitude,
+                   longitude: draft.longitude,
+                   imageUrl: draft.imageUrl,
+                   imageBytes: draft.imageBytes,
+                   isAiVerified: true,
+                 );
+              }
+           }
+        }
+        
         await createReport(draft); 
         count++;
       } catch (e) {
@@ -145,7 +185,7 @@ class ReportRepository {
     await _client.from('reports').delete().eq('id', id);
   }
 
-  Future<void> resolveReport(Report report, List<int> imageBytes, String imageExtension) async {
+  Future<void> resolveReport(Report report, List<int> imageBytes, String imageExtension, String resolutionDetail) async {
     // Subir la imagen de prueba de trabajo
     final fileName = 'resolved_${DateTime.now().millisecondsSinceEpoch}_${report.id}.$imageExtension';
     await _client.storage.from('report_images').uploadBinary(fileName, Uint8List.fromList(imageBytes));
@@ -155,6 +195,7 @@ class ReportRepository {
     await _client.from('reports').update({
       'status': ReportStatus.resolved.name,
       'resolved_image_url': resolvedImageUrl,
+      'resolution_detail': resolutionDetail,
     }).eq('id', report.id);
 
     // Sumar puntos al ciudadano (si hay)

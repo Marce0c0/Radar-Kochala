@@ -2,28 +2,139 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'core/theme/app_theme.dart';
 import 'controllers/report_controller.dart'; 
 import 'views/role/role_selection_view.dart';
 import 'views/home/home_view.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: "env.txt");
+  runApp(const SplashApp());
+}
 
-  await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL'] ?? '',
-    publishableKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
-  );
+class SplashApp extends StatefulWidget {
+  const SplashApp({super.key});
 
-  runApp(
-    // Envolvemos la app en el Provider
-    ChangeNotifierProvider(
-      create: (_) => ReportController()..load(), // Inicializamos y cargamos los reportes aquí
-      child: const BachesCochaApp(),
-    ),
-  );
+  @override
+  State<SplashApp> createState() => _SplashAppState();
+}
+
+class _SplashAppState extends State<SplashApp> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+    
+    _animation = Tween<double>(begin: 0.85, end: 1.15).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+
+    _initializeApp();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Pre-cache the image so it loads instantly in subsequent screens
+    precacheImage(const AssetImage('assets/logo_cochabamba.png'), context);
+  }
+
+  Future<void> _initializeApp() async {
+    try {
+      await dotenv.load(fileName: "env.txt");
+      await Supabase.initialize(
+        url: dotenv.env['SUPABASE_URL'] ?? '',
+        publishableKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
+      );
+      // Esperar a que la fuente global de Google Fonts cargue antes de quitar el splash
+      await GoogleFonts.pendingFonts([
+        GoogleFonts.inter(),
+      ]);
+      // Min delay so the user can enjoy the splash animation
+      await Future.delayed(const Duration(milliseconds: 2000));
+    } catch (e) {
+      debugPrint("Initialization error: $e");
+    }
+    
+    if (mounted) {
+      setState(() {
+        _isInitialized = true;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isInitialized) {
+      return ChangeNotifierProvider(
+        create: (_) => ReportController()..load(),
+        child: const BachesCochaApp(),
+      );
+    }
+
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: const Color(0xfff4f8f6), // AppTheme.surface
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ScaleTransition(
+                scale: _animation,
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  child: Image.asset(
+                    'assets/logo_cochabamba.png',
+                    height: 140,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 40),
+              const Text(
+                'RADAR KOCHALA',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xff122b27), // AppTheme.ink
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const SizedBox(height: 25),
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xff0eb6c2)),
+              ),
+              const SizedBox(height: 15),
+              const Text(
+                'Iniciando sistema...',
+                style: TextStyle(
+                  color: Color(0xff668080),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class BachesCochaApp extends StatelessWidget {

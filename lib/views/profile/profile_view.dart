@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -40,11 +41,15 @@ class ProfileView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
       children: [
-        const Text('Perfil',
-            style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-                color: AppTheme.ink)),
+        Text(
+          'Perfil',
+          style: GoogleFonts.inter(
+            fontSize: 28,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.ink,
+            letterSpacing: -0.5,
+          ),
+        ),
         const SizedBox(height: 16),
         // Tarjeta de perfil con datos reales del usuario autenticado.
         Container(
@@ -99,29 +104,31 @@ class ProfileView extends StatelessWidget {
             _Stat(value: '$inProgress', label: 'En proceso'),
           ]),
           const SizedBox(height: 24),
-          Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Mis reportes recientes',
-                    style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.ink)),
-                TextButton(onPressed: onNew, child: const Text('Reportar')),
-              ]),
           if (mine.isEmpty)
             const Padding(
                 padding: EdgeInsets.all(20),
                 child: Center(
                     child: Text('Todavía no has enviado reportes.')))
           else
-            ...mine.take(2).map((report) => ReportCard(
+            Theme(
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                initiallyExpanded: false,
+                title: const Text('Mis reportes',
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.ink)),
+                children: mine.map((report) => ReportCard(
                   report: report,
                   onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
                           builder: (_) => DetailView(report: report))),
-                )),
+                )).toList(),
+              ),
+            ),
         ] else ...[
           // Usuario invitado: invitamos a crear cuenta.
           const SizedBox(height: 24),

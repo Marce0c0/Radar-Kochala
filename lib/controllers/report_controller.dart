@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../data/models/report.dart';
 import '../data/repositories/report_repository.dart';
+import '../services/offline_sync_service.dart';
 
 enum ExploreFilterMode { recientes, urgentes, populares, resueltos }
 
@@ -17,14 +18,14 @@ class ReportController extends ChangeNotifier {
   List<ReportDraft> pendingDrafts = [];
   ReportCategory? filter;
   ExploreFilterMode exploreMode = ExploreFilterMode.recientes;
-  bool hideResolved = false;
+  bool hideResolved = true;
   bool loading = true;
   String? error;
   
   bool loadingMore = false;
   bool hasMore = true;
   int _offset = 0;
-  static const int _limit = 20;
+  static const int _limit = 5;
 
   StreamSubscription? _connectivitySubscription;
   bool _wasOffline = false;
@@ -47,47 +48,46 @@ class ReportController extends ChangeNotifier {
   }
 
   List<Report> get visibleReports {
-    var filtered = reports;
+    var filtered = reports.toList();
     if (filter != null) {
       filtered = filtered.where((r) => r.category == filter).toList();
     }
     
-    if (hideResolved) {
-      filtered = filtered.where((r) => r.status != ReportStatus.resolved).toList();
-    }
-
-    switch (exploreMode) {
-      case ExploreFilterMode.urgentes:
-        filtered = filtered.where((r) => r.severity == 'Alta' && r.status != ReportStatus.resolved).toList();
-        filtered.sort((a, b) {
-          final cmp = b.upvotes.compareTo(a.upvotes);
-          if (cmp == 0) {
-             final aDate = a.createdAt ?? DateTime.now();
-             final bDate = b.createdAt ?? DateTime.now();
-             return bDate.compareTo(aDate);
-          }
-          return cmp;
-        });
-        break;
-      case ExploreFilterMode.populares:
+    if (exploreMode == ExploreFilterMode.resueltos) {
+      filtered = filtered.where((r) => r.status == ReportStatus.resolved).toList();
+    } else {
+      if (hideResolved) {
         filtered = filtered.where((r) => r.status != ReportStatus.resolved).toList();
-        filtered.sort((a, b) {
-          final cmp = b.upvotes.compareTo(a.upvotes);
-          if (cmp == 0) {
-             final aDate = a.createdAt ?? DateTime.now();
-             final bDate = b.createdAt ?? DateTime.now();
-             return bDate.compareTo(aDate);
-          }
-          return cmp;
-        });
-        break;
-      case ExploreFilterMode.resueltos:
-        filtered = filtered.where((r) => r.status == ReportStatus.resolved).toList();
-        break;
-      case ExploreFilterMode.recientes:
-      default:
-        filtered = filtered.where((r) => r.status != ReportStatus.resolved).toList();
-        break;
+      }
+      
+      switch (exploreMode) {
+        case ExploreFilterMode.urgentes:
+          filtered = filtered.where((r) => r.severity == 'Alta').toList();
+          filtered.sort((a, b) {
+            final cmp = b.upvotes.compareTo(a.upvotes);
+            if (cmp == 0) {
+               final aDate = a.createdAt ?? DateTime.now();
+               final bDate = b.createdAt ?? DateTime.now();
+               return bDate.compareTo(aDate);
+            }
+            return cmp;
+          });
+          break;
+        case ExploreFilterMode.populares:
+          filtered.sort((a, b) {
+            final cmp = b.upvotes.compareTo(a.upvotes);
+            if (cmp == 0) {
+               final aDate = a.createdAt ?? DateTime.now();
+               final bDate = b.createdAt ?? DateTime.now();
+               return bDate.compareTo(aDate);
+            }
+            return cmp;
+          });
+          break;
+        case ExploreFilterMode.recientes:
+        default:
+          break;
+      }
     }
     return filtered;
   }
@@ -105,6 +105,7 @@ class ReportController extends ChangeNotifier {
     notifyListeners();
     try {
       await _repository.syncQueue();
+      await OfflineSyncService.syncPendingTasks(this);
       pendingDrafts = await _repository.getPendingDrafts();
       reports = await _repository.fetchReports(limit: _limit, offset: _offset);
       if (reports.length < _limit) hasMore = false;
@@ -183,9 +184,9 @@ class ReportController extends ChangeNotifier {
     }
   }
 
-  Future<void> resolveReport(Report report, List<int> imageBytes, String imageExtension) async {
+  Future<void> resolveReport(Report report, List<int> imageBytes, String imageExtension, String resolutionDetail) async {
     try {
-      await _repository.resolveReport(report, imageBytes, imageExtension);
+      await _repository.resolveReport(report, imageBytes, imageExtension, resolutionDetail);
       await load(); // Reload to get updated report details (like resolved_image_url)
     } catch (e) {
       debugPrint('Error al resolver reporte: $e');

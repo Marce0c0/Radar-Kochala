@@ -3,11 +3,9 @@ import 'dart:typed_data';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/models/report.dart';
 import '../controllers/report_controller.dart';
-import 'ai_validation_service.dart';
 
 class OfflineSyncService {
   static const String _queueKey = 'offline_task_queue';
@@ -36,20 +34,18 @@ class OfflineSyncService {
   }
 
   /// Intenta sincronizar todas las tareas pendientes si hay conexión
-  static Future<void> syncPendingTasks(BuildContext context) async {
+  static Future<int> syncPendingTasks(ReportController controller) async {
     final connectivityResult = await Connectivity().checkConnectivity();
-    // In newer connectivity_plus, it returns a List<ConnectivityResult>.
     final isOffline = (connectivityResult as List).contains(ConnectivityResult.none);
     
-    if (isOffline) return;
+    if (isOffline) return 0;
 
     final prefs = await SharedPreferences.getInstance();
     List<String> queue = prefs.getStringList(_queueKey) ?? [];
     
-    if (queue.isEmpty) return;
+    if (queue.isEmpty) return 0;
     
     List<String> remainingQueue = [];
-    final controller = context.read<ReportController>();
     final client = Supabase.instance.client;
     final userId = client.auth.currentUser?.id;
 
@@ -65,7 +61,7 @@ class OfflineSyncService {
         final originalReport = controller.reports.firstWhere((r) => r.id == reportId);
         
         // 1. Subir imagen y marcar resuelto
-        await controller.resolveReport(originalReport, imageBytes, task['ext']);
+        await controller.resolveReport(originalReport, imageBytes, task['ext'], task['notes'] ?? '');
 
         // 2. Actualizar asignación
         await client.from('assignments')
@@ -83,10 +79,6 @@ class OfflineSyncService {
     
     await prefs.setStringList(_queueKey, remainingQueue);
     
-    if (queue.length > remainingQueue.length && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${queue.length - remainingQueue.length} tareas sincronizadas con éxito al recuperar conexión.'))
-      );
-    }
+    return queue.length - remainingQueue.length;
   }
 }

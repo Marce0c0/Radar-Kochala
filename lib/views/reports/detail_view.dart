@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/report.dart';
+import '../staff/field_worker_view.dart';
 import '../widgets/status_pill.dart';
 
 // Convertido a StatefulWidget para gestionar el estado de votación local.
 class DetailView extends StatefulWidget {
-  const DetailView({super.key, required this.report});
+  const DetailView({super.key, required this.report, this.isFromExecution = false});
   final Report report;
+  final bool isFromExecution;
 
   @override
   State<DetailView> createState() => _DetailViewState();
@@ -120,10 +125,42 @@ class _DetailViewState extends State<DetailView> {
     if (mounted) setState(() => _votingLoading = false);
   }
 
+  void _showFullscreenImage(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      builder: (c) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(0),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            InteractiveViewer(
+              panEnabled: true,
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: SizedBox(
+                width: MediaQuery.of(context).size.width,
+                height: MediaQuery.of(context).size.height,
+                child: Image.network(url, fit: BoxFit.contain),
+              ),
+            ),
+            IconButton(
+              onPressed: () => Navigator.pop(c),
+              icon: const Icon(Icons.close, color: Colors.white, size: 30),
+              style: IconButton.styleFrom(backgroundColor: Colors.black54),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final Report report = widget.report;
     final String? imageUrl = report.imageUrl;
+    final _currentUser = Supabase.instance.client.auth.currentUser;
+    final _isStaff = _currentUser != null && _currentUser.email != null && _currentUser.email!.endsWith('@alcaldia.cbba');
 
     return Scaffold(
       backgroundColor: AppTheme.lightTheme.scaffoldBackgroundColor,
@@ -138,70 +175,109 @@ class _DetailViewState extends State<DetailView> {
         children: [
           // Solo renderiza el contenedor si hay una imagen presente
           if (imageUrl != null && imageUrl.isNotEmpty) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(22),
-              child: Container(
-                height: 220,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: const Color(0xffdcebe6),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.ink.withValues(alpha: 0.08),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5),
+            if (report.resolvedImageUrl != null && report.resolvedImageUrl!.isNotEmpty)
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.report_problem, size: 16, color: Color(0xffd9684b)),
+                            SizedBox(width: 4),
+                            Text('Reportado', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xffd9684b))),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: GestureDetector(
+                            onTap: () => _showFullscreenImage(context, imageUrl),
+                            child: Image.network(imageUrl, height: 160, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.image_not_supported)),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Center(
-                        child: Icon(Icons.broken_image_outlined,
-                            size: 50, color: Color(0xff78908d)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.check_circle, size: 16, color: AppTheme.teal),
+                            SizedBox(width: 4),
+                            Text('Resuelto', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.teal)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: GestureDetector(
+                            onTap: () => _showFullscreenImage(context, report.resolvedImageUrl!),
+                            child: Image.network(report.resolvedImageUrl!, height: 160, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.image_not_supported)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            else
+              ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: Container(
+                  height: 220,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: const Color(0xffdcebe6),
+                    boxShadow: [
+                      BoxShadow(color: AppTheme.ink.withValues(alpha: 0.08), blurRadius: 15, offset: const Offset(0, 5)),
+                    ],
+                  ),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      GestureDetector(
+                        onTap: () => _showFullscreenImage(context, imageUrl),
+                        child: Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Center(child: Icon(Icons.broken_image_outlined, size: 50, color: Color(0xff78908d))),
+                        ),
                       ),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 10, horizontal: 16),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withValues(alpha: 0.6)
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Colors.transparent, Colors.black.withValues(alpha: 0.6)],
+                            ),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.camera_alt_rounded, color: Colors.white, size: 18),
+                              SizedBox(width: 8),
+                              Text(
+                                'Evidencia fotográfica del reporte',
+                                style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
                             ],
                           ),
                         ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.camera_alt_rounded,
-                                color: Colors.white, size: 18),
-                            SizedBox(width: 8),
-                            Text(
-                              'Evidencia fotográfica del reporte',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
             const SizedBox(height: 24),
           ],
           
@@ -433,7 +509,98 @@ class _DetailViewState extends State<DetailView> {
                   fontSize: 15, height: 1.6, color: Color(0xff344f4c)),
             ),
           ),
+          
+          if (report.resolutionDetail != null && report.resolutionDetail!.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xfff0fdf4),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xffbbf7d0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.check_circle, color: AppTheme.teal, size: 18),
+                      SizedBox(width: 8),
+                      Text('Detalle de Resolución', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.teal)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    report.resolutionDetail!,
+                    style: const TextStyle(fontSize: 15, height: 1.6, color: Color(0xff344f4c)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          
           const SizedBox(height: 30),
+
+          // --- UBICACION ---
+          if (report.latitude != null && report.longitude != null) ...[
+            const Text(
+              'Ubicación del problema',
+              style: TextStyle(
+                  fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.ink),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              height: 180,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xffe1e9e6)),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: FlutterMap(
+                  options: MapOptions(
+                    initialCenter: LatLng(report.latitude!, report.longitude!),
+                    initialZoom: 16.5,
+                    interactionOptions: const InteractionOptions(flags: InteractiveFlag.none),
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.example.app',
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: LatLng(report.latitude!, report.longitude!),
+                          width: 40, height: 40,
+                          child: const Icon(Icons.location_on, color: Colors.red, size: 40),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () async {
+                  final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=${report.latitude},${report.longitude}');
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url);
+                  }
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.teal,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                icon: const Icon(Icons.navigation, size: 18),
+                label: const Text('Navegar al punto'),
+              ),
+            ),
+            const SizedBox(height: 30),
+          ],
 
           // --- SEGUIMIENTO ---
           const Text(
@@ -490,7 +657,7 @@ class _DetailViewState extends State<DetailView> {
           const SizedBox(height: 20),
 
           // --- REABRIR REPORTE FALSO ---
-          if (report.status == ReportStatus.resolved) ...[
+          if (report.status == ReportStatus.resolved && !_isStaff) ...[
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -525,6 +692,28 @@ class _DetailViewState extends State<DetailView> {
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+          if (!widget.isFromExecution && report.status == ReportStatus.inProgress && _currentUser != null && _currentUser.email != null && _currentUser.email!.startsWith('trabajador')) ...[
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () {
+                  if (widget.isFromExecution) {
+                    Navigator.pop(context);
+                  } else {
+                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => TaskExecutionView(report: report)));
+                  }
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.teal,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                icon: const Icon(Icons.build),
+                label: const Text('Subir reporte de solución', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
             const SizedBox(height: 20),
