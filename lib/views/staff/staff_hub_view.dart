@@ -413,17 +413,20 @@ class _ValidateReportViewState extends State<ValidateReportView> {
 
     // Actualiza el estado del reporte.
     await context.read<ReportController>().updateStatus(widget.report.id, _selectedStatus);
-    // Si hay un trabajador seleccionado, crea la asignación en la BD.
-    if (_selectedWorkerId != null) {
+    // Si hay trabajadores seleccionados, crea las asignaciones en la BD.
+    if (_selectedWorkerIds.isNotEmpty) {
       try {
         final client = Supabase.instance.client;
-        await client.from('assignments').insert({
-          'report_id': widget.report.id,
-          'worker_id': _selectedWorkerId,
-          'operator_id': client.auth.currentUser?.id,
-          'operator_notes': _note.text.trim(),
-          'assigned_at': DateTime.now().toIso8601String(),
-        });
+        final assignmentRows = _selectedWorkerIds
+            .map((workerId) => {
+                  'report_id': widget.report.id,
+                  'worker_id': workerId,
+                  'operator_id': client.auth.currentUser?.id,
+                  'operator_notes': _note.text.trim(),
+                  'assigned_at': DateTime.now().toIso8601String(),
+                })
+            .toList();
+        await client.from('assignments').insert(assignmentRows);
       } catch (e) {
         debugPrint('Error al guardar asignación: $e');
         if (mounted) {
@@ -510,7 +513,6 @@ class _TeamViewState extends State<_TeamView> {
     );
   }
 }
-
 
 
 
